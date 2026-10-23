@@ -505,13 +505,13 @@ class CaseService:
         await self.db.flush()
 
     async def _log_case_event(
-        self, 
-        case_id: str, 
-        event_type: str, 
-        actor_id: str, 
-        old_status: Optional[CaseStatus], 
-        new_status: Optional[CaseStatus], 
-        details: Optional[dict]
+        self,
+        case_id: str,
+        event_type: str,
+        actor_id: str,
+        old_status: Optional[CaseStatus],
+        new_status: Optional[CaseStatus],
+        details: Optional[dict],
     ):
         """Log a case event for audit trail."""
         event = CaseEvent(
@@ -524,3 +524,159 @@ class CaseService:
         )
         self.db.add(event)
         await self.db.flush()
+
+    # ===== Clarification Methods =====
+
+    async def create_clarification(
+        self, request: ClarificationRequestCreate, user: UserContext
+    ) -> ClarificationRequest:
+        """Create a clarification request (Scrutiny Officer)."""
+        case = await self.get_case(request.case_id, user)
+
+        if case.status != CaseStatus.UNDER_SCRUTINY:
+            raise ValueError("Clarifications can only be requested for cases under scrutiny")
+
+        if not access_control.can_transition_case_status(user, case.status.value, CaseStatus.CLARIFICATION_PENDING.value, case.institution_id):
+            raise PermissionError("Cannot transition case to clarification pending")
+
+        old_status = case.status
+        case.status = CaseStatus.CLARIFICATION_PENDING
+
+        clarification = ClarificationRequest(
+            case_id=request.case_id,
+            requested_by=user.user_id,
+            question=request.question,
+            status=ClarificationStatus.PENDING,
+        )
+
+        self.db.add(clarification)
+        await self.db.flush()
+
+        await audit_service.log_event(
+            db=self.db,
+            entity_type="clarification_request",
+            entity_id=clarification.id,
+            action=AuditAction.CLARIFICATION_REQUEST,
+            actor_id=user.user_id,
+            new_values={"question": request.question, "case_status": case.status.value},
+        )
+
+        await self._log_case_event(
+            case.id, "clarification_requested", user.user_id, old_status, case.status,
+            {"clarification_id": clarification.id, "question": request.question}
+        )
+
+        return clarification
+
+    async def list_clarifications(
+        self, case_id: str, params, user: UserContext
+    ) -> Tuple[List[ClarificationRequest], int]:
+        """List clarification requests for a case."""
+        case = await self.get_case(case_id, user)
+
+        stmt = select(ClarificationRequest).where(
+            ClarificationRequest.case_id == case_id
+        ).order_by(ClarificationRequest.created_at.desc())
+
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        total_result = await self.db.execute(count_stmt)
+        total = total_result.scalar()
+
+        stmt = stmt.offset((params.page - 1) * params.page_size).limit(params.page_size)
+        result = await self.db.execute(stmt)
+        clarifications = result.scalars().all()
+
+        return list(clarifications), total
+
+    async def get_clarification(
+        self, clarification_id: str, user: UserContext
+    ) -> Optional[ClarificationRequest]:
+        """Get a specific clarification request."""
+        clarification = await self.db.get(ClarificationRequest, clarification_id)
+        if not clarification:
+            return None
+
+        case = await self.get_case(clarification.case_id, user)
+        if not case:
+            return None
+
+        return clarification
+
+    async def respond_clarification(
+        self, clarification_id: str, request: ClarificationRequestUpdate, user: UserContext
+    ) -> ClarificationRequest:
+        """Respond to a clarification request (Institution Rep)."""
+        clarification = await self.get_clarification(clarification_id, user)
+        if not clarification:
+            raise ValueError("Clarification not found")
+
+        if clarification.status != ClarificationStatus.PENDING:
+            raise ValueError("Clarification already responded")
+
+        case = await self.db.get(DepositCase, clarification.case_id)
+        if user.institution_id != case.institution_id and not access_control.require_permission(user, "clarification:respond"):
+            raise PermissionError("Cannot respond to clarification for another institution")
+
+        clarification.response = request.response
+        clarification.status = ClarificationStatus.RESPONDED
+        clarification.responded_by = user.user_id
+        clarification.resolved_at = datetime.now(timezone.utc)
+
+        old_status = case.status
+        case.status = CaseStatus.UNDER_SCRUTINY
+
+        await self.db.flush()
+
+        await audit_service.log_event(
+            db=self.db,
+            entity_type="clarification_request",
+            entity_id=clarification.id,
+            action=AuditAction.CLARIFICATION_RESPONSE,
+            actor_id=user.user_id,
+            old_values={"status": ClarificationStatus.PENDING.value},
+            new_values={"status": ClarificationStatus.RESPONDED.value, "response": request.response},
+        )
+
+        await self._log_case_event(
+            case.id, "clarification_responded", user.user_id, old_status, case.status,
+            {"clarification_id": clarification.id}
+        )
+
+        return clarification
+
+    async def update_clarification_status(
+        self, clarification_id: str, new_status: ClarificationStatus, user: UserContext
+    ) -> ClarificationRequest:
+        """Update clarification status (Scrutiny Officer - resolve/reopen)."""
+        clarification = await self.get_clarification(clarification_id, user)
+        if not clarification:
+            raise ValueError("Clarification not found")
+
+        if new_status == ClarificationStatus.RESOLVED:
+            if clarification.status != ClarificationStatus.RESPONDED:
+                raise ValueError("Can only resolve responded clarifications")
+        elif new_status == ClarificationStatus.PENDING:
+            if clarification.status != ClarificationStatus.RESPONDED:
+                raise ValueError("Can only reopen responded clarifications")
+        else:
+            raise ValueError("Invalid status transition")
+
+        old_status = clarification.status
+        clarification.status = new_status
+
+        if new_status == ClarificationStatus.RESOLVED:
+            clarification.resolved_at = datetime.now(timezone.utc)
+
+        await self.db.flush()
+
+        await audit_service.log_event(
+            db=self.db,
+            entity_type="clarification_request",
+            entity_id=clarification.id,
+            action=AuditAction.CLARIFICATION_RESPONSE,
+            actor_id=user.user_id,
+            old_values={"status": old_status.value},
+            new_values={"status": new_status.value},
+        )
+
+        return clarification
