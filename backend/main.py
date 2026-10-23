@@ -11,7 +11,7 @@ from backend.database import init_db, close_db
 from backend.services.auth import validate_startup_config as validate_auth_config
 from backend.services.audit_service import audit_service
 from backend.services.access_control import access_control
-from backend.routes import institutions, users, cases
+from backend.routes import institutions, users, cases, evidence
 
 settings = get_settings()
 
@@ -169,6 +169,7 @@ async def root():
 app.include_router(institutions.router, prefix="/api/v1/institutions", tags=["institutions"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 app.include_router(cases.router, prefix="/api/v1/cases", tags=["cases"])
+app.include_router(evidence.router, prefix="/api/v1/cases", tags=["evidence"])
 
 
 if __name__ == "__main__":

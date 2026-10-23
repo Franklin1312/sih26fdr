@@ -5,7 +5,7 @@ from typing import Optional, Dict, Any, List
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from backend.schemas.common import IDMixin, TimestampMixin
+from backend.schemas.common import IDMixin, TimestampMixin, PaginationParams, PaginatedResponse
 
 
 class DepositEvidenceBase(BaseModel):
@@ -32,12 +32,47 @@ class DepositEvidenceResponse(DepositEvidenceBase, IDMixin, TimestampMixin):
     uploaded_by: str
     file_path: str
     version: int
+    file_hash: str
     ocr_text: Optional[str] = None
     ocr_confidence: Optional[float] = None
     validation_flags: Optional[Dict[str, Any]] = None
     extracted_data: Optional[Dict[str, Any]] = None
     replaced_by_id: Optional[str] = None
     uploaded_by_user: Optional["UserResponse"] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DepositEvidenceUploadResponse(DepositEvidenceBase, IDMixin, TimestampMixin):
+    """Response for evidence upload."""
+    case_id: str
+    uploaded_by: str
+    file_hash: str
+    version: int
+    replaced_id: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class DepositEvidenceListResponse(PaginatedResponse[DepositEvidenceResponse]):
+    """Paginated list of evidence documents."""
+    pass
+
+
+class DepositEvidenceDownloadResponse(BaseModel):
+    """Response for download token generation."""
+    download_token: str
+    filename: str
+    expires_in: int
+
+
+class DepositEvidenceReplaceResponse(DepositEvidenceBase, IDMixin, TimestampMixin):
+    """Response for evidence replacement."""
+    case_id: str
+    uploaded_by: str
+    file_hash: str
+    version: int
+    previous_version_id: str
 
     model_config = ConfigDict(from_attributes=True)
 

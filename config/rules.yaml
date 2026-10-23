@@ -1,0 +1,378 @@
+# SIH26265 - Configurable Business Rules
+# All unconfirmed internal routing, deadlines, and SOP details are configured here
+# DO NOT hardcode these values in the application code
+
+# =============================================================================
+# INTERNAL ROUTING & QUEUE CONFIGURATION
+# =============================================================================
+routing:
+  scrutiny_assignment:
+    strategy: "round_robin"
+    auto_assign_on_submit: true
+    max_cases_per_officer: 50
+  
+  clearance_assignment:
+    strategy: "by_type"
+    default_officers:
+      financial_verification: "clearance_1"
+      legal_compliance: "clearance_1"
+      technical_verification: "clearance_1"
+  
+  authority_assignment:
+    strategy: "by_method"
+    fdr_rpgf_authority: "authority_1"
+    rtgs_authority: "authority_1"
+    sd_refund_authority: "authority_1"
+
+# =============================================================================
+# DEADLINE & SLA CONFIGURATION (Configurable - NOT official policy)
+# =============================================================================
+deadlines:
+  scrutiny:
+    initial_review_days: 5
+    clarification_response_days: 7
+    max_clarification_rounds: 3
+    escalation_days: 15
+  
+  clearance:
+    financial_verification_days: 10
+    legal_compliance_days: 10
+    technical_verification_days: 10
+    parallel_processing: true
+    escalation_days: 20
+  
+  release_decision:
+    fdr_rpgf_review_days: 15
+    rtgs_review_days: 10
+    sd_refund_review_days: 10
+    escalation_days: 30
+  
+  case_total_max_days: 120
+# =============================================================================
+# DOCUMENT REQUIREMENTS PER DEPOSIT TYPE & METHOD
+# =============================================================================
+document_requirements:
+  security_deposit:
+    fdr_rpgf:
+      mandatory:
+        - "fdr_certificate"
+        - "bank_confirmation_letter"
+        - "board_resolution"
+        - "latest_loa_eoa"
+        - "audited_financial_statements"
+      conditional:
+        - condition: "amount > 5000000"
+          documents:
+            - "independent_valuation_report"
+        - condition: "institution_age < 3"
+          documents:
+            - "promoter_guarantee"
+    rtgs:
+      mandatory:
+        - "rtgs_remittance_proof"
+        - "bank_confirmation_letter"
+        - "board_resolution"
+        - "latest_loa_eoa"
+      conditional: []
+    security_deposit_refund:
+      mandatory:
+        - "original_deposit_certificate"
+        - "no_dues_certificate"
+        - "board_resolution_refund"
+        - "latest_loa_eoa"
+      conditional: []
+  
+  fdr:
+    fdr_rpgf:
+      mandatory:
+        - "fdr_certificate"
+        - "bank_confirmation_letter"
+        - "maturity_instructions"
+        - "latest_loa_eoa"
+      conditional: []
+  
+  rpgf:
+    fdr_rpgf:
+      mandatory:
+        - "rpgf_certificate"
+        - "bank_confirmation_letter"
+        - "guarantee_terms"
+        - "latest_loa_eoa"
+      conditional: []
+  
+  bank_guarantee:
+    fdr_rpgf:
+      mandatory:
+        - "bank_guarantee_document"
+        - "bank_confirmation_letter"
+        - "guarantee_terms_conditions"
+        - "latest_loa_eoa"
+# =============================================================================
+# RELEASE CHECKLIST TEMPLATES (Dynamic based on context)
+# =============================================================================
+release_checklists:
+  maturity_fdr_rpgf:
+    - "fdr_matured_confirmed"
+    - "no_liens_encumbrances"
+    - "institution_clearance_certificate"
+    - "financial_verification_cleared"
+    - "legal_compliance_cleared"
+    - "technical_verification_cleared"
+    - "competent_authority_approval"
+  
+  early_release_fdr_rpgf:
+    - "early_release_justification_documented"
+    - "penalty_waiver_approved"
+    - "no_liens_encumbrances"
+    - "institution_clearance_certificate"
+    - "financial_verification_cleared"
+    - "legal_compliance_cleared"
+    - "competent_authority_approval"
+  
+  replacement_fdr_rpgf:
+    - "new_instrument_verified"
+    - "old_instrument_surrendered"
+    - "no_liens_encumbrances"
+    - "financial_verification_cleared"
+    - "competent_authority_approval"
+  
+  renewal_fdr_rpgf:
+    - "renewal_application_received"
+    - "continued_eligibility_verified"
+    - "financial_verification_cleared"
+    - "competent_authority_approval"
+  
+  refund_security_deposit_refund:
+    - "term_completed_verified"
+    - "no_pending_compliance_issues"
+    - "no_dues_certificate_verified"
+    - "board_resolution_refund_verified"
+    - "financial_verification_cleared"
+    - "legal_compliance_cleared"
+    - "competent_authority_approval"
+  
+  maturity_rtgs:
+    - "rtgs_funds_received_confirmed"
+    - "no_liens_encumbrances"
+    - "institution_clearance_certificate"
+    - "financial_verification_cleared"
+    - "competent_authority_approval"
+  
+  early_release_rtgs:
+    - "early_release_justification_documented"
+    - "no_liens_encumbrances"
+    - "financial_verification_cleared"
+    - "competent_authority_approval"
+  
+  replacement_rtgs:
+    - "new_instrument_verified"
+    - "old_instrument_surrendered"
+    - "financial_verification_cleared"
+    - "competent_authority_approval"
+  
+  renewal_rtgs:
+    - "renewal_application_received"
+    - "continued_eligibility_verified"
+    - "financial_verification_cleared"
+    - "competent_authority_approval"
+
+# =============================================================================
+# ALERT CONFIGURATION
+# =============================================================================
+alerts:
+  lead_days: [30, 15, 7, 1, 0]
+  channels:
+    email: true
+    in_app: true
+    webhook: false
+  templates:
+    maturity_approaching:
+      subject: "FDR Maturity Approaching - Action Required"
+      urgency: "high"
+    term_ending:
+      subject: "AICTE Term Ending - Review Deposit Requirement"
+      urgency: "medium"
+    overdue_clearance:
+      subject: "Overdue Clearance Task - Immediate Action Required"
+      urgency: "high"
+    clarification_pending:
+      subject: "Clarification Response Overdue"
+      urgency: "medium"
+
+# =============================================================================
+# FILE UPLOAD VALIDATION RULES
+# =============================================================================
+file_validation:
+  max_file_size_mb: 10
+  allowed_mime_types:
+    - "application/pdf"
+    - "image/jpeg"
+    - "image/png"
+    - "image/tiff"
+    - "application/msword"
+    - "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    - "application/vnd.ms-excel"
+    - "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+  virus_scan_enabled: false  # Stub for future AV integration
+  versioning_enabled: true
+
+# =============================================================================
+# VALIDATION RULES
+# =============================================================================
+validation:
+  fields:
+    amount:
+      min: 1000
+      max: 1000000000
+      currency: "INR"
+    instrument_number:
+      min_length: 5
+      max_length: 100
+      pattern: "^[A-Z0-9\\-]+$"
+    maturity_date:
+      min_days_from_now: 1
+      max_years_from_now: 10
+    email:
+      pattern: "^[^@]+@[^@]+\\.[^@]+$"
+  
+  cross_field:
+    - name: "maturity_after_creation"
+      rule: "maturity_date > created_at"
+      message: "Maturity date must be after case creation"
+    - name: "amount_matches_evidence"
+      rule: "sum(evidence.amounts) == case.amount"
+      message: "Evidence amounts must match case amount"
+    - name: "fdr_requires_maturity"
+      rule: "deposit_type != 'fdr' || maturity_date != null"
+      message: "FDR deposits must have a maturity date"
+# =============================================================================
+# DEMO / SYNTHETIC DATA CONFIGURATION
+# =============================================================================
+demo:
+  institutions:
+    - id: "inst_1"
+      name: "Demo Engineering College"
+      code: "DEC001"
+      contact_email: "principal@dec.edu.in"
+      address: "123 Demo Street, Demo City"
+    - id: "inst_2"
+      name: "Sample Technical Institute"
+      code: "STI002"
+      contact_email: "director@sti.edu.in"
+      address: "456 Sample Road, Sample City"
+    - id: "inst_3"
+      name: "Test Polytechnic"
+      code: "TP003"
+      contact_email: "principal@tp.edu.in"
+      address: "789 Test Avenue, Test Town"
+  
+  users:
+    - id: "inst_rep_1"
+      email: "inst_rep_1@demo.example"
+      full_name: "Institution Rep 1"
+      role: "institution_rep"
+      institution_id: "inst_1"
+    - id: "inst_rep_2"
+      email: "inst_rep_2@demo.example"
+      full_name: "Institution Rep 2"
+      role: "institution_rep"
+      institution_id: "inst_2"
+    - id: "scrutiny_1"
+      email: "scrutiny_1@demo.example"
+      full_name: "Scrutiny Officer 1"
+      role: "scrutiny_officer"
+    - id: "scrutiny_2"
+      email: "scrutiny_2@demo.example"
+      full_name: "Scrutiny Officer 2"
+      role: "scrutiny_officer"
+    - id: "clearance_1"
+      email: "clearance_1@demo.example"
+      full_name: "Clearance Officer 1"
+      role: "clearance_officer"
+    - id: "clearance_2"
+      email: "clearance_2@demo.example"
+      full_name: "Clearance Officer 2"
+      role: "clearance_officer"
+    - id: "authority_1"
+      email: "authority_1@demo.example"
+      full_name: "Competent Authority 1"
+      role: "competent_authority"
+    - id: "admin_1"
+      email: "admin_1@demo.example"
+      full_name: "System Admin 1"
+      role: "system_admin"
+  
+  case_scenarios:
+    - name: "Standard FDR Maturity"
+      deposit_type: "fdr"
+      deposit_method: "fdr_rpgf"
+      amount: 5000000
+      instrument_number: "FDR-DEC001-2024-001"
+      issuing_bank: "State Bank of India"
+      maturity_date_offset_days: 30
+      documents:
+        - "fdr_certificate"
+        - "bank_confirmation_letter"
+        - "maturity_instructions"
+        - "latest_loa_eoa"
+      expected_flow: "draft -> submitted -> under_scrutiny -> clearance_queue -> cleared -> release_requested -> fdr_rpgf_review -> final_decision -> released"
+    
+    - name: "Security Deposit RTGS Refund"
+      deposit_type: "security_deposit"
+      deposit_method: "rtgs"
+      amount: 10000000
+      instrument_number: "RTGS-DEC001-2024-002"
+      issuing_bank: "HDFC Bank"
+      maturity_date_offset_days: null
+      documents:
+        - "rtgs_remittance_proof"
+        - "bank_confirmation_letter"
+        - "board_resolution"
+        - "latest_loa_eoa"
+      expected_flow: "draft -> submitted -> under_scrutiny -> clarification_pending -> under_scrutiny -> clearance_queue -> cleared -> release_requested -> rtgs_review -> final_decision -> released"
+    
+    - name: "FDR Replacement with Clarification"
+      deposit_type: "fdr"
+      deposit_method: "fdr_rpgf"
+      amount: 7500000
+      instrument_number: "FDR-STI002-2024-001"
+      issuing_bank: "Punjab National Bank"
+      maturity_date_offset_days: 60
+      documents:
+        - "fdr_certificate"
+        - "bank_confirmation_letter"
+        - "latest_loa_eoa"
+      clarification_scenario:
+        missing_doc: "maturity_instructions"
+        question: "Maturity instructions document is missing. Please provide the bank's maturity payment instructions."
+      expected_flow: "draft -> submitted -> under_scrutiny -> clarification_pending -> under_scrutiny -> clearance_queue -> cleared -> release_requested -> fdr_rpgf_review -> final_decision -> released"
+    
+    - name: "RPGF Early Release"
+      deposit_type: "rpgf"
+      deposit_method: "fdr_rpgf"
+      amount: 3000000
+      instrument_number: "RPGF-TP003-2024-001"
+      issuing_bank: "Bank of Baroda"
+      maturity_date_offset_days: 365
+      documents:
+        - "rpgf_certificate"
+        - "bank_confirmation_letter"
+        - "guarantee_terms"
+        - "latest_loa_eoa"
+      release_request:
+        type: "early_release"
+        justification: "Institution merging with another entity, deposit no longer required"
+      expected_flow: "draft -> submitted -> under_scrutiny -> clearance_queue -> cleared -> release_requested -> fdr_rpgf_review -> final_decision -> released"
+    
+    - name: "Duplicate Instrument Detection"
+      deposit_type: "fdr"
+      deposit_method: "fdr_rpgf"
+      amount: 2000000
+      instrument_number: "FDR-DEC001-2024-001"
+      issuing_bank: "State Bank of India"
+      maturity_date_offset_days: 90
+      documents:
+        - "fdr_certificate"
+        - "bank_confirmation_letter"
+        - "latest_loa_eoa"
+      expected_anomaly: "duplicate_instrument_number"

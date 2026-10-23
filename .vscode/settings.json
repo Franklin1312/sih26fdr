@@ -1,0 +1,22 @@
+{
+    "terminal.integrated.defaultProfile.windows": "Git Bash",
+    "terminal.integrated.profiles.windows": {
+        "Git Bash": {
+            "path": "C:\\Program Files\\Git\\bin\\bash.exe",
+            "args": ["--login"],
+            "icon": "terminal-bash"
+        },
+        "PowerShell": {
+            "path": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+            "args": ["-NoLogo"]
+        },
+        "Command Prompt": {
+            "path": "C:\\Windows\\System32\\cmd.exe"
+        }
+    },
+    "terminal.integrated.automationProfile.windows": {
+        "path": "C:\\Program Files\\Git\\bin\\bash.exe",
+        "args": ["--login"]
+    },
+    "python-envs.defaultEnvManager": "ms-python.python:system"
+}

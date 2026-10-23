@@ -79,8 +79,10 @@ async def list_cases(
 ):
     """List deposit cases with pagination and filters."""
     cases, total = await case_service.list_cases(params, user)
+    # Convert SQLAlchemy models to Pydantic schemas
+    case_responses = [DepositCaseResponse.model_validate(case) for case in cases]
     return PaginatedResponse(
-        items=cases,
+        items=case_responses,
         total=total,
         page=params.page,
         page_size=params.page_size,

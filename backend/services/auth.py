@@ -17,7 +17,14 @@ logger = logging.getLogger("sih26psfdr.auth")
 settings = get_settings()
 
 # Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Use bcrypt with compatible settings; fallback to sha256_crypt for demo mode if bcrypt fails
+try:
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+    # Test bcrypt works
+    pwd_context.hash("test")
+except Exception:
+    logger.warning("bcrypt backend unavailable, falling back to sha256_crypt")
+    pwd_context = CryptContext(schemes=["sha256_crypt"], deprecated="auto")
 
 # Demo mode
 DEMO_MODE = settings.demo_mode

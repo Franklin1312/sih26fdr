@@ -21,6 +21,7 @@ dev = [
 
 [project.scripts]
 seed-demo = "scripts.seed_demo:main"
+reset-demo = "scripts.reset_demo:main"
 verify-audit = "scripts.verify_audit:main"
 run-alerts = "scripts.run_alerts:main"
 

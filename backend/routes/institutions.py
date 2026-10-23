@@ -12,6 +12,7 @@ from backend.schemas.institution import (
     InstitutionUpdate,
     InstitutionResponse,
     InstitutionWithStats,
+    CurrentUserResponse,
 )
 from backend.schemas.common import PaginationParams, PaginatedResponse
 from backend.models import Institution
@@ -22,7 +23,6 @@ router = APIRouter()
 
 
 async def get_current_user(authorization: str = Header(None)):
-    from backend.schemas.institution import CurrentUserResponse
     try:
         user = await auth_service.get_current_user(authorization)
         access_control.register_user(user)
