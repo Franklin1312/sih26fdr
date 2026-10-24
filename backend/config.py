@@ -5,7 +5,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import List, Optional
 
-from pydantic import Field
+from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -62,6 +62,14 @@ class Settings(BaseSettings):
     # CORS
     cors_allow_origins: str = Field(default="http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000", alias="CORS_ALLOW_ORIGINS")
     cors_allow_credentials: bool = Field(default=True, alias="CORS_ALLOW_CREDENTIALS")
+
+    @field_validator("debug", mode="before")
+    @classmethod
+    def parse_debug_setting(cls, value):
+        """Tolerate hosting environments that reserve DEBUG for a build mode."""
+        if isinstance(value, str) and value.strip().lower() in {"release", "production", "prod"}:
+            return False
+        return value
 
     @property
     def cors_origins_list(self) -> List[str]:

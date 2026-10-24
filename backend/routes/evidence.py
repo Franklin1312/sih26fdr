@@ -84,10 +84,20 @@ async def upload_evidence(
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
     
-    require_evidence_access(user, case, "evidence:upload")
+    authority_output_types = {"approval_bureau_noc", "council_sanction_order"}
+    is_authority_output = document_type in authority_output_types
+    if is_authority_output:
+        expected = "approval_bureau_noc" if case.deposit_method.value == "fdr_rpgf" else "council_sanction_order" if case.deposit_method.value == "rtgs" else None
+        expected_role = "approval_bureau" if document_type == "approval_bureau_noc" else "council"
+        if document_type != expected or expected_role not in {role.value for role in user.roles} or not user.has_permission("evidence:upload_authority"):
+            raise HTTPException(status_code=403, detail="Only the routed authority can record this official output")
+        if case.status != CaseStatus.FINAL_DECISION:
+            raise HTTPException(status_code=400, detail="Authority output can be recorded only after authorization")
+    else:
+        require_evidence_access(user, case, "evidence:upload")
     
     # Check case status - only allow upload in certain statuses
-    allowed_statuses = [CaseStatus.DRAFT, CaseStatus.SUBMITTED, CaseStatus.UNDER_SCRUTINY, CaseStatus.CLARIFICATION_PENDING, CaseStatus.CLEARED, CaseStatus.RELEASE_REQUESTED, CaseStatus.FDR_RPGF_REVIEW, CaseStatus.RTGS_REVIEW, CaseStatus.SD_REFUND_REVIEW]
+    allowed_statuses = [CaseStatus.DRAFT, CaseStatus.SUBMITTED, CaseStatus.UNDER_SCRUTINY, CaseStatus.CLARIFICATION_PENDING, CaseStatus.CLEARED, CaseStatus.RELEASE_REQUESTED, CaseStatus.FDR_RPGF_REVIEW, CaseStatus.RTGS_REVIEW, CaseStatus.SD_REFUND_REVIEW, CaseStatus.FINAL_DECISION]
     if case.status not in allowed_statuses:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -175,6 +185,12 @@ async def upload_evidence(
             "version": evidence.version,
         },
     )
+    if is_authority_output:
+        await audit_service.log_event(
+            db=db, entity_type="deposit_case", entity_id=case.id,
+            action=AuditAction.UPDATE, actor_id=user.user_id,
+            new_values={"authority_output_recorded": document_type, "evidence_id": evidence.id, "simulation": case.is_demo},
+        )
     
     await db.commit()
     await db.refresh(evidence)

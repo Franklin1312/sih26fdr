@@ -35,6 +35,9 @@ class ChecklistItem:
 class ChecklistEngine:
     """Service for generating and evaluating conditional checklists."""
 
+    def __init__(self):
+        self.rule_engine = get_rule_engine()
+
     def generate_checklist(
         self,
         request_type: str,
@@ -53,25 +56,19 @@ class ChecklistEngine:
             List of ChecklistItem objects
         """
         case_data = case_data or {}
-        checklist_keys = self.rule_engine.get_release_checklist(request_type, deposit_method)
-        
-        # Get conditional checklist rules
-        conditional_rules = self.rule_engine.get("release_checklists.conditional", [])
+        configured_items = self.rule_engine.get_release_checklist_items(request_type, deposit_method)
         
         items = []
-        for key in checklist_keys:
-            # Check if this item has conditional rules
-            item_config = self._get_item_config(key, conditional_rules, case_data)
-            
-            # Evaluate condition if present
-            if item_config.get("condition"):
-                if not self._evaluate_condition(item_config["condition"], case_data):
-                    continue  # Skip this item if condition not met
+        for item_config in configured_items:
+            # A conditional item is included only when its own configured
+            # condition applies. Unknown conditions are safely not applicable.
+            if item_config.get("condition") and not self._evaluate_condition(item_config["condition"], case_data):
+                continue
             
             item = ChecklistItem(
-                key=key,
-                label=item_config.get("label", key.replace("_", " ").title()),
-                mandatory=item_config.get("mandatory", True),
+                key=item_config["key"],
+                label=item_config.get("label", item_config["key"].replace("_", " ").title()),
+                mandatory=bool(item_config.get("mandatory", False)),
                 condition=item_config.get("condition"),
                 category=item_config.get("category"),
             )
@@ -109,19 +106,7 @@ class ChecklistEngine:
         return config
 
     def _evaluate_condition(self, condition: str, case_data: Dict[str, Any]) -> bool:
-        """Safely evaluate a condition string against case data."""
-        try:
-            eval_condition = condition
-            for key, value in case_data.items():
-                if isinstance(value, str):
-                    eval_condition = eval_condition.replace(key, f"'{value}'")
-                else:
-                    eval_condition = eval_condition.replace(key, str(value))
-            
-            allowed_names = {"True": True, "False": False, "None": None}
-            return eval(eval_condition, {"__builtins__": {}}, allowed_names)
-        except Exception:
-            return False
+        return self.rule_engine.evaluate_condition(condition, case_data)
 
     def evaluate_checklist(
         self,

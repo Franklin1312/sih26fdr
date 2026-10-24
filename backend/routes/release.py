@@ -1,6 +1,7 @@
 """Release routes - Authority release workflow."""
 
 from typing import List, Optional
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Header
 from sqlalchemy import and_, func, select
@@ -50,14 +51,34 @@ def _review_status(path: str) -> CaseStatus:
     }[path]
 
 
+def _route_authority(path: str) -> UserRole:
+    return {
+        "fdr_rpgf": UserRole.APPROVAL_BUREAU,
+        "rtgs": UserRole.COUNCIL,
+        "sd_refund": UserRole.COMPETENT_AUTHORITY,
+    }[path]
+
+
+def _require_route_authority(current_user, path: str) -> None:
+    expected = _route_authority(path)
+    if expected not in current_user.roles:
+        raise HTTPException(status_code=403, detail=f"Only {expected.value.replace('_', ' ')} can act on this route")
+
+
 def _evaluate_release_checklist(case: DepositCase, release_request: ReleaseRequest) -> dict:
     """Evaluate evidence and clearance records against the configured release checklist."""
     engine = get_checklist_engine()
+    maturity_date = case.maturity_date
+    if maturity_date and maturity_date.tzinfo is None:
+        maturity_date = maturity_date.replace(tzinfo=timezone.utc)
     case_data = {
         "deposit_method": case.deposit_method.value,
         "amount": float(case.amount),
-        "institution_type": case.institution.institution_type if case.institution else "unknown",
+        "institution_type": getattr(case.institution.institution_type, "value", case.institution.institution_type) if case.institution else "unknown",
+        "bank_requires_noc": False,
+        "deposit_matured": bool(maturity_date and maturity_date <= datetime.now(timezone.utc)),
     }
+    case_data.update(case.regulatory_context or {})
     rules = engine.rule_engine.get_release_checklist_items(
         release_request.request_type.value, case.deposit_method.value
     )
@@ -101,27 +122,6 @@ def _evaluate_release_checklist(case: DepositCase, release_request: ReleaseReque
                 completed_count += 1
             else:
                 missing.append(item.key)
-    authority_document = {
-        "fdr_rpgf": ("approval_bureau_noc", "Approval Bureau NOC"),
-        "rtgs": ("council_sanction_order", "Council sanction order"),
-    }.get(release_request.review_path)
-    if authority_document:
-        key, label = authority_document
-        complete = key in document_types
-        completed_items.append({
-            "key": key,
-            "label": label,
-            "mandatory": True,
-            "condition": "Required for this final authority route",
-            "category": "final_authority",
-            "document_type": key,
-            "completed": complete,
-        })
-        mandatory_count += 1
-        if complete:
-            completed_count += 1
-        else:
-            missing.append(key)
     return {
         "passed": not missing,
         "mandatory_count": mandatory_count,
@@ -293,11 +293,8 @@ async def get_release_queue(
     db: AsyncSession = Depends(get_db),
 ):
     """Get release queue for the competent authority."""
-    if UserRole.COMPETENT_AUTHORITY not in current_user.roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only competent authority can access release queue"
-        )
+    if not ({UserRole.COMPETENT_AUTHORITY, UserRole.APPROVAL_BUREAU, UserRole.COUNCIL} & set(current_user.roles)):
+        raise HTTPException(status_code=403, detail="Release authority access is required")
     
     review_statuses = [
         CaseStatus.FDR_RPGF_REVIEW,
@@ -321,7 +318,12 @@ async def get_release_queue(
         path_status = {"fdr_rpgf": CaseStatus.FDR_RPGF_REVIEW, "rtgs": CaseStatus.RTGS_REVIEW, "sd_refund": CaseStatus.SD_REFUND_REVIEW}.get(review_path)
         if path_status is None:
             raise HTTPException(status_code=400, detail="Unknown release route")
+        _require_route_authority(current_user, review_path)
         query = query.where(DepositCase.status == path_status)
+    elif UserRole.APPROVAL_BUREAU in current_user.roles:
+        query = query.where(DepositCase.status == CaseStatus.FDR_RPGF_REVIEW)
+    elif UserRole.COUNCIL in current_user.roles:
+        query = query.where(DepositCase.status == CaseStatus.RTGS_REVIEW)
     
     count_query = select(func.count()).select_from(query.subquery())
     total_result = await db.execute(count_query)
@@ -438,11 +440,6 @@ async def get_release_case_detail(
     db: AsyncSession = Depends(get_db),
 ):
     """Get release case detail with checklist."""
-    if UserRole.COMPETENT_AUTHORITY not in current_user.roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only competent authority can access release cases"
-        )
     
     query = select(DepositCase).where(DepositCase.id == case_id).options(
         selectinload(DepositCase.institution),
@@ -459,6 +456,7 @@ async def get_release_case_detail(
     release_request = max(case.release_requests, key=lambda r: r.created_at) if case.release_requests else None
     if not release_request:
         raise HTTPException(status_code=404, detail="No release request found for this case")
+    _require_route_authority(current_user, release_request.review_path or "")
     
     checklist_engine = get_checklist_engine()
     case_data = {"deposit_method": case.deposit_method.value, "amount": float(case.amount)}
@@ -511,16 +509,12 @@ async def decide_release(
     db: AsyncSession = Depends(get_db),
 ):
     """Decide on a release request (Competent Authority)."""
-    if UserRole.COMPETENT_AUTHORITY not in current_user.roles:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only competent authority can decide on release"
-        )
     
     query = select(DepositCase).where(DepositCase.id == case_id).options(
         selectinload(DepositCase.release_requests),
         selectinload(DepositCase.clearances),
         selectinload(DepositCase.evidence),
+        selectinload(DepositCase.institution),
     )
     result = await db.execute(query)
     case = result.scalar_one_or_none()
@@ -531,6 +525,7 @@ async def decide_release(
     release_request = max(case.release_requests, key=lambda r: r.created_at) if case.release_requests else None
     if not release_request:
         raise HTTPException(status_code=404, detail="No release request found for this case")
+    _require_route_authority(current_user, release_request.review_path or "")
 
     expected_status = _review_status(release_request.review_path or "")
     if case.status != expected_status:
@@ -575,10 +570,11 @@ async def decide_release(
     message = ""
     
     if request.final_decision == ReleaseDecision.RELEASE:
-        case.status = CaseStatus.RELEASED
-        message = "Funds released successfully"
+        case.status = CaseStatus.FINAL_DECISION
+        output = "Approval Bureau NOC" if release_request.review_path == "fdr_rpgf" else "Council sanction order" if release_request.review_path == "rtgs" else "authority decision record"
+        message = f"Authorization recorded. Issue and record the {output}; funds are not marked transferred."
     elif request.final_decision == ReleaseDecision.REJECT:
-        case.status = CaseStatus.CLEARED
+        case.status = CaseStatus.REJECTED
         message = "Release rejected"
     elif request.final_decision == ReleaseDecision.RETURN_FOR_CORRECTION:
         case.status = CaseStatus.CLEARED
@@ -648,7 +644,11 @@ async def get_release_checklist(
     db: AsyncSession = Depends(get_db),
 ):
     """Get release checklist for a case."""
-    if not ({UserRole.COMPETENT_AUTHORITY, UserRole.INSTITUTION_REP} & set(current_user.roles)):
+    allowed_roles = {
+        UserRole.COMPETENT_AUTHORITY, UserRole.APPROVAL_BUREAU,
+        UserRole.COUNCIL, UserRole.INSTITUTION_REP,
+    }
+    if not (allowed_roles & set(current_user.roles)):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Release checklist access is restricted"

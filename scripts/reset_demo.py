@@ -71,17 +71,17 @@ async def reset_audit_service():
     print("Audit service reinitialized with new checkpoint key.")
 
 
-async def main():
+async def main(force: bool = False):
     """Main reset function."""
     print("=" * 60)
     print("SIH26265 - Resetting Demo Data")
     print("=" * 60)
     
-    # Confirm with user
-    confirm = input("This will DELETE ALL DATA. Continue? (yes/no): ").strip().lower()
-    if confirm != "yes":
-        print("Aborted.")
-        return
+    if not force:
+        confirm = input("This will DELETE ALL DATA. Continue? (yes/no): ").strip().lower()
+        if confirm != "yes":
+            print("Aborted.")
+            return
     
     await init_db()
     print("Database initialized")
@@ -98,4 +98,4 @@ async def main():
 
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(main(force="--yes" in sys.argv))

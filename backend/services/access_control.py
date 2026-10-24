@@ -39,6 +39,22 @@ ROLE_PERMISSIONS: Dict[UserRole, Set[str]] = {
         "evidence:read_assigned",
         "evidence:read",
     },
+    UserRole.APPROVAL_BUREAU: {
+        "release:read_fdr_rpgf",
+        "release:decide_fdr_rpgf",
+        "evidence:read_all",
+        "evidence:read",
+        "evidence:upload_authority",
+        "dashboard:view_all",
+    },
+    UserRole.COUNCIL: {
+        "release:read_rtgs",
+        "release:decide_rtgs",
+        "evidence:read_all",
+        "evidence:read",
+        "evidence:upload_authority",
+        "dashboard:view_all",
+    },
     UserRole.COMPETENT_AUTHORITY: {
         "release:decide",
         "release:read_all",
@@ -46,9 +62,13 @@ ROLE_PERMISSIONS: Dict[UserRole, Set[str]] = {
         "dashboard:view_all",
         "evidence:read_all",
         "evidence:read",
+        "evidence:upload_authority",
     },
     UserRole.SYSTEM_ADMIN: {
-        "*",
+        "system:manage",
+        "user:manage",
+        "config:manage",
+        "audit:read",
     },
 }
 
@@ -56,6 +76,8 @@ ROLE_DESCRIPTIONS: Dict[UserRole, str] = {
     UserRole.INSTITUTION_REP: "Institution representative - manage own deposit cases",
     UserRole.SCRUTINY_OFFICER: "Scrutiny officer - review cases, request clarifications",
     UserRole.CLEARANCE_OFFICER: "Clearance officer - record clearance outcomes",
+    UserRole.APPROVAL_BUREAU: "Approval Bureau - FDR/RPGF authority decisions only",
+    UserRole.COUNCIL: "Council - RTGS authority decisions only",
     UserRole.COMPETENT_AUTHORITY: "Competent authority - final release decisions",
     UserRole.SYSTEM_ADMIN: "System administrator - system management only",
 }
@@ -78,13 +100,9 @@ class UserContext:
 
     def has_permission(self, permission: str) -> bool:
         """Check if user has a specific permission."""
-        # System admin has wildcard permissions
-        if UserRole.SYSTEM_ADMIN in self.roles:
-            return True
-        
         for role in self.roles:
             permissions = ROLE_PERMISSIONS.get(role, set())
-            if permission in permissions or "*" in permissions:
+            if permission in permissions:
                 return True
         return False
 
@@ -175,10 +193,6 @@ class AccessControlService:
 
     def can_access_case(self, user: UserContext, case_institution_id: str, case_assigned_officer_id: Optional[str], case_status: Optional[str] = None) -> bool:
         """Check if user can access a specific case."""
-        # System admin can access everything
-        if UserRole.SYSTEM_ADMIN in user.roles:
-            return True
-        
         # Institution rep can only access own institution's cases
         if UserRole.INSTITUTION_REP in user.roles:
             return user.institution_id == case_institution_id
@@ -193,8 +207,8 @@ class AccessControlService:
                 return True
             return case_assigned_officer_id == user.user_id
         
-        # Competent authority can access all cases
-        if UserRole.COMPETENT_AUTHORITY in user.roles:
+        # Route authorities can access cases for their decision responsibility.
+        if user.roles & {UserRole.COMPETENT_AUTHORITY, UserRole.APPROVAL_BUREAU, UserRole.COUNCIL}:
             return True
         
         return False
@@ -224,14 +238,14 @@ class AccessControlService:
             (CaseStatus.UNDER_SCRUTINY, CaseStatus.CLEARANCE_QUEUE): ["clearance:prepare"],
             (CaseStatus.CLEARANCE_QUEUE, CaseStatus.CLEARED): ["clearance:record"],
             (CaseStatus.CLEARED, CaseStatus.RELEASE_REQUESTED): ["release:request_own"],
-            (CaseStatus.RELEASE_REQUESTED, CaseStatus.FDR_RPGF_REVIEW): ["release:decide"],
-            (CaseStatus.RELEASE_REQUESTED, CaseStatus.RTGS_REVIEW): ["release:decide"],
+            (CaseStatus.RELEASE_REQUESTED, CaseStatus.FDR_RPGF_REVIEW): ["release:decide", "release:decide_fdr_rpgf"],
+            (CaseStatus.RELEASE_REQUESTED, CaseStatus.RTGS_REVIEW): ["release:decide", "release:decide_rtgs"],
             (CaseStatus.RELEASE_REQUESTED, CaseStatus.SD_REFUND_REVIEW): ["release:decide"],
-            (CaseStatus.FDR_RPGF_REVIEW, CaseStatus.FINAL_DECISION): ["release:decide"],
-            (CaseStatus.RTGS_REVIEW, CaseStatus.FINAL_DECISION): ["release:decide"],
+            (CaseStatus.FDR_RPGF_REVIEW, CaseStatus.FINAL_DECISION): ["release:decide", "release:decide_fdr_rpgf"],
+            (CaseStatus.RTGS_REVIEW, CaseStatus.FINAL_DECISION): ["release:decide", "release:decide_rtgs"],
             (CaseStatus.SD_REFUND_REVIEW, CaseStatus.FINAL_DECISION): ["release:decide"],
-            (CaseStatus.FINAL_DECISION, CaseStatus.RELEASED): ["release:decide"],
-            (CaseStatus.FINAL_DECISION, CaseStatus.REJECTED): ["release:decide"],
+            (CaseStatus.FINAL_DECISION, CaseStatus.RELEASED): ["release:decide", "release:decide_fdr_rpgf", "release:decide_rtgs"],
+            (CaseStatus.FINAL_DECISION, CaseStatus.REJECTED): ["release:decide", "release:decide_fdr_rpgf", "release:decide_rtgs"],
         }
         
         required_perms = transition_permissions.get((from_enum, to_enum), [])

@@ -63,6 +63,7 @@ class ClearanceClaimRequest(BaseModel):
 
 class ClearanceCompleteRequest(BaseModel):
     """Request to complete a clearance task."""
+    evidence: str = Field(..., min_length=1, description="Linked evidence ID or evidence reference")
     notes: Optional[str] = None
 
 

@@ -39,6 +39,7 @@ build/
 data/*.db
 data/*.sqlite
 data/*.sqlite3
+data/*.log
 data/uploads/
 data/audit_checkpoint_key.pem
 

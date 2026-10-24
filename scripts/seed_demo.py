@@ -111,7 +111,7 @@ async def seed_cases(db: AsyncSession, rule_engine, users: list, institutions: l
     inst_reps = [u for u in users if u.role == UserRole.INSTITUTION_REP]
     scrutiny_officers = [u for u in users if u.role == UserRole.SCRUTINY_OFFICER]
     clearance_officers = [u for u in users if u.role == UserRole.CLEARANCE_OFFICER]
-    authority_users = [u for u in users if u.role == UserRole.COMPETENT_AUTHORITY]
+    authority_users = [u for u in users if u.role in {UserRole.APPROVAL_BUREAU, UserRole.COUNCIL, UserRole.COMPETENT_AUTHORITY}]
 
     for scenario in rule_engine.get_demo_cases():
         existing_result = await db.execute(
@@ -165,13 +165,13 @@ async def seed_cases(db: AsyncSession, rule_engine, users: list, institutions: l
                     case_id=case.id,
                     clearance_type=clr_type,
                     assigned_to=clr_officer.id if clr_officer else None,
-                    status=ClearanceStatus.CLEARED if scenario["status"] in ["RELEASED", "RTGS_REVIEW", "CLEARED"] else ClearanceStatus.PENDING,
-                    completed_at=datetime.now(timezone.utc) if scenario["status"] in ["RELEASED", "RTGS_REVIEW", "CLEARED"] else None,
+                    status=ClearanceStatus.CLEARED if scenario["status"].upper() in ["RELEASED", "RTGS_REVIEW", "CLEARED"] else ClearanceStatus.PENDING,
+                    completed_at=datetime.now(timezone.utc) if scenario["status"].upper() in ["RELEASED", "RTGS_REVIEW", "CLEARED"] else None,
                 )
                 db.add(task)
 
         # Create release request if in release workflow
-        if scenario.get("release_decision") and scenario["status"] in ["RELEASED", "RTGS_REVIEW", "RELEASE_REQUESTED", "FDR_RPGF_REVIEW", "SD_REFUND_REVIEW"]:
+        if scenario["status"].lower() in ["released", "rtgs_review", "release_requested", "fdr_rpgf_review", "sd_refund_review"]:
             review_path = rule_engine.get_review_path_for_method(deposit_method.value)
             review_status_map = {
                 "fdr_rpgf": CaseStatus.FDR_RPGF_REVIEW,
@@ -189,9 +189,20 @@ async def seed_cases(db: AsyncSession, rule_engine, users: list, institutions: l
                 status="decided" if scenario["status"] == "RELEASED" else "pending",
                 checklist_data={item: True for item in rule_engine.get_release_checklist("maturity", case.deposit_method.value)},
             )
-            if scenario["status"] == "RELEASED":
+            if scenario["status"].lower() == "released":
                 release_request.final_decision = ReleaseDecision.RELEASE
-                release_request.decided_by = authority_users[0].id if authority_users else creator.id
+                # Attribute the decision to the correct authority for this route.
+                route_role_map = {
+                    "fdr_rpgf": UserRole.APPROVAL_BUREAU,
+                    "rtgs": UserRole.COUNCIL,
+                    "sd_refund": UserRole.COMPETENT_AUTHORITY,
+                }
+                expected_role = route_role_map.get(review_path, UserRole.COMPETENT_AUTHORITY)
+                decided_by_user = next(
+                    (u for u in authority_users if u.role == expected_role),
+                    authority_users[0] if authority_users else creator,
+                )
+                release_request.decided_by = decided_by_user.id
                 release_request.decided_at = datetime.now(timezone.utc)
                 release_request.decision_reasoning = "All clearances completed, documents verified, authority approves release."
 
@@ -303,12 +314,6 @@ async def seed_evidence(db: AsyncSession, cases: list, users: list):
                 for item in rule_engine.get_release_checklist_items("maturity", case.deposit_method.value)
                 if item.get("document_type")
             )
-            route_doc = {
-                DepositMethod.FDR_RPGF: "approval_bureau_noc",
-                DepositMethod.RTGS: "council_sanction_order",
-            }.get(case.deposit_method)
-            if route_doc:
-                required_docs.append(route_doc)
         required_docs = sorted(set(required_docs))
 
         for doc_type in required_docs:
@@ -340,14 +345,45 @@ async def seed_evidence(db: AsyncSession, cases: list, users: list):
                 file_hash=file_meta["file_hash"],
                 ocr_text=file_meta.get("ocr_text"),
                 ocr_confidence=file_meta.get("ocr_confidence"),
-                validation_flags=file_meta.get("validation_flags"),
+                validation_flags=_seeded_validation_flags(case.tracking_ref, doc_type, file_meta.get("validation_flags")),
                 extracted_data=file_meta.get("extracted_data"),
                 version=1,
                 is_demo=True,
             )
             db.add(evidence)
 
+        await db.flush()
+        # A completed clearance must reference actual evidence, rather than a
+        # free-text note.  The generated clearance certificate is synthetic but
+        # is a real evidence record in this demo database.
+        certificate_result = await db.execute(
+            select(DepositEvidence.id).where(
+                DepositEvidence.case_id == case.id,
+                DepositEvidence.document_type == "clearance_certificate",
+                DepositEvidence.is_deleted.is_(False),
+            ).limit(1)
+        )
+        certificate_id = certificate_result.scalar_one_or_none()
+        if certificate_id:
+            tasks_result = await db.execute(select(ClearanceTask).where(ClearanceTask.case_id == case.id))
+            for task in tasks_result.scalars().all():
+                if task.status == ClearanceStatus.CLEARED:
+                    task.evidence = certificate_id
+
         print(f"Created {len(required_docs)} evidence documents for case {case.tracking_ref}")
+
+
+def _seeded_validation_flags(case_number: str, document_type: str, base_flags: dict | None) -> dict:
+    """Attach deterministic, visibly synthetic advisory findings to seed evidence."""
+    flags = dict(base_flags or {})
+    matches = [d for d in get_rule_engine().get_seeded_discrepancies() if d.get("case_number") == case_number]
+    if matches:
+        flags["synthetic_findings"] = [
+            {**finding, "document_type": document_type, "advisory_only": True,
+             "provenance": "seeded simulation — not OCR or external verification"}
+            for finding in matches
+        ]
+    return flags
 
 
 async def advance_case_workflow(db: AsyncSession, case: DepositCase, users: list, rule_engine):
@@ -400,6 +436,18 @@ async def advance_case_workflow(db: AsyncSession, case: DepositCase, users: list
     }
     review_status = review_status_map.get(review_path, CaseStatus.RELEASE_REQUESTED)
 
+    # Pick the correct authority for this review path.
+    route_role_map = {
+        "fdr_rpgf": UserRole.APPROVAL_BUREAU,
+        "rtgs": UserRole.COUNCIL,
+        "sd_refund": UserRole.COMPETENT_AUTHORITY,
+    }
+    expected_role = route_role_map.get(review_path, UserRole.COMPETENT_AUTHORITY)
+    route_authority = next(
+        (u for u in users if u.role == expected_role),
+        authority if authority else scrutiny,
+    )
+
     release_request = ReleaseRequest(
         id=str(uuid4()),
         case_id=case.id,
@@ -417,22 +465,22 @@ async def advance_case_workflow(db: AsyncSession, case: DepositCase, users: list
     db.add(event)
 
     case.status = review_status
-    event = CaseEvent(id=str(uuid4()), case_id=case.id, event_type=f"{review_path}_review_started", actor_id=authority.id, old_status=CaseStatus.RELEASE_REQUESTED, new_status=review_status)
+    event = CaseEvent(id=str(uuid4()), case_id=case.id, event_type=f"{review_path}_review_started", actor_id=route_authority.id, old_status=CaseStatus.RELEASE_REQUESTED, new_status=review_status)
     db.add(event)
 
     case.status = CaseStatus.FINAL_DECISION
     release_request.final_decision = ReleaseDecision.RELEASE
-    release_request.decided_by = authority.id
+    release_request.decided_by = route_authority.id
     release_request.decided_at = datetime.now(timezone.utc)
     release_request.decision_reasoning = "All clearances completed, documents verified, authority approves release."
     release_request.status = "decided"
 
-    event = CaseEvent(id=str(uuid4()), case_id=case.id, event_type="final_decision", actor_id=authority.id, old_status=review_status, new_status=CaseStatus.FINAL_DECISION, details={"decision": ReleaseDecision.RELEASE.value})
+    event = CaseEvent(id=str(uuid4()), case_id=case.id, event_type="final_decision", actor_id=route_authority.id, old_status=review_status, new_status=CaseStatus.FINAL_DECISION, details={"decision": ReleaseDecision.RELEASE.value})
     db.add(event)
 
     case.status = CaseStatus.RELEASED
     case.closed_at = datetime.now(timezone.utc)
-    event = CaseEvent(id=str(uuid4()), case_id=case.id, event_type="released", actor_id=authority.id, old_status=CaseStatus.FINAL_DECISION, new_status=CaseStatus.RELEASED)
+    event = CaseEvent(id=str(uuid4()), case_id=case.id, event_type="released", actor_id=route_authority.id, old_status=CaseStatus.FINAL_DECISION, new_status=CaseStatus.RELEASED)
     db.add(event)
 
     await db.flush()

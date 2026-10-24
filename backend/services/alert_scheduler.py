@@ -84,14 +84,16 @@ class AlertSchedulerService:
                     and_(
                         LifecycleDate.date_value >= window_start,
                         LifecycleDate.date_value <= window_end,
-                        LifecycleDate.alert_sent == False,  # noqa: E712
                     )
                 )
             )
             due_dates = result.scalars().all()
 
             for ld in due_dates:
-                if ld.alert_sent_at:
+                # A lifecycle date can legitimately emit one reminder for each
+                # configured lead day.  Only suppress a duplicate run of the
+                # same lead day within the configured window.
+                if ld.alert_sent_at and ld.alert_lead_days == lead_day:
                     time_since_last = now - ld.alert_sent_at
                     if time_since_last < timedelta(hours=dedupe_hours):
                         logger.debug(f"Skipping alert for {ld.id} - sent {time_since_last} ago (dedupe: {dedupe_hours}h)")
@@ -145,11 +147,10 @@ class AlertSchedulerService:
                 logger.info(f"  Subject: {subject}")
                 logger.info(f"  Urgency: {template.get('urgency', 'medium')}")
 
-                await self._create_notification(db, case, ld, subject, body, template.get("urgency", "medium"))
-
                 ld.alert_sent = True
                 ld.alert_sent_at = now
                 ld.alert_lead_days = lead_day
+                await self._create_notification(db, case, ld, subject, body, template.get("urgency", "medium"))
 
                 alerts_sent += 1
 

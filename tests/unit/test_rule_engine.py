@@ -21,13 +21,13 @@ class TestRuleEngine:
         clearance_tasks = engine.get_clearance_tasks()
         assert len(clearance_tasks) == 3
         types = [t["type"] for t in clearance_tasks]
-        assert "financial" in types
-        assert "legal" in types
+        assert "pgrc" in types
+        assert "vigilance" in types
         assert "technical" in types
 
         # Check mandatory clearance types
         mandatory = engine.get_mandatory_clearance_types()
-        assert set(mandatory) == {"financial", "legal", "technical"}
+        assert set(mandatory) == {"pgrc", "vigilance", "technical"}
 
         # Check review paths
         assert engine.get_review_path_for_method("fdr_rpgf") == "fdr_rpgf"
@@ -67,8 +67,9 @@ class TestRuleEngine:
         assert "email_simulated" in channels
 
         template = engine.get_alert_template("upcoming")
-        assert "{date_type}" in template
-        assert "{days}" in template
+        assert "{date_type}" in template["body"]
+        assert "{days}" in template["body"]
+        assert template["urgency"] == "medium"
 
     def test_release_checklists(self):
         """Test release checklist templates."""
@@ -86,7 +87,11 @@ class TestRuleEngine:
         assert "vigilance_clearance" in checklist
         assert "government_noc" in checklist
         assert "bank_noc" in checklist
-        assert len(checklist) == 10
+        assert "external_body_noc" in checklist
+        assert "no_pending_proceedings_certificate" in checklist
+        assert "progressive_closure_no_students_certificate" in checklist
+        assert "merger_child_no_students_certificate" in checklist
+        assert len(checklist) == 14
 
         # RTGS maturity
         checklist = engine.get_release_checklist("maturity", "rtgs")
@@ -99,7 +104,11 @@ class TestRuleEngine:
         assert "vigilance_clearance" in checklist
         assert "government_noc" in checklist
         assert "bank_noc" in checklist
-        assert len(checklist) == 9
+        assert "external_body_noc" in checklist
+        assert "no_pending_proceedings_certificate" in checklist
+        assert "progressive_closure_no_students_certificate" in checklist
+        assert "merger_child_no_students_certificate" in checklist
+        assert len(checklist) == 13
 
         # Security deposit refund
         checklist = engine.get_release_checklist("refund", "security_deposit_refund")
@@ -119,11 +128,11 @@ class TestRuleEngine:
 
         # Check checklist items with metadata
         items = engine.get_release_checklist_items("maturity", "fdr_rpgf")
-        assert len(items) == 10
+        assert len(items) == 14
         mandatory_items = [i for i in items if i.get("mandatory")]
         conditional_items = [i for i in items if not i.get("mandatory")]
         assert len(mandatory_items) == 8
-        assert len(conditional_items) == 2
+        assert len(conditional_items) == 6
 
     def test_validation_rules(self):
         """Test validation rules."""
@@ -144,12 +153,12 @@ class TestRuleEngine:
         # Document requirements per deposit type
         fdr_docs = engine.get_document_requirements("FDR")
         assert "fdr_original" in fdr_docs
-        assert "payment_evidence" in fdr_docs
+        assert "payment_proof" in fdr_docs
         assert "loa_eoa" in fdr_docs
 
         rtgs_docs = engine.get_document_requirements("RTGS")
         assert "rtgs_receipt" in rtgs_docs
-        assert "payment_evidence" in rtgs_docs
+        assert "payment_proof" in rtgs_docs
         assert "loa_eoa" in rtgs_docs
 
         sd_docs = engine.get_document_requirements("SECURITY_DEPOSIT")
@@ -166,12 +175,14 @@ class TestRuleEngine:
         assert institutions[0]["code"] == "DEC001"
 
         users = engine.get_demo_users()
-        assert len(users) == 6
+        assert len(users) == 8
         roles = {u["role"] for u in users}
         assert "institution_rep" in roles
         assert "scrutiny_officer" in roles
         assert "clearance_officer" in roles
         assert "competent_authority" in roles
+        assert "approval_bureau" in roles
+        assert "council" in roles
         assert "system_admin" in roles
 
         cases = engine.get_demo_cases()
@@ -216,7 +227,8 @@ class TestRuleEngine:
         assert "release:decide" in authority_perms
 
         admin_perms = engine.get_role_permissions("SYSTEM_ADMIN")
-        assert "*" in admin_perms
+        assert "system:manage" in admin_perms
+        assert "release:decide" not in admin_perms
 
     def test_condition_evaluation(self):
         """Test condition evaluation."""

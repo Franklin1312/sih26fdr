@@ -275,14 +275,14 @@ async def complete_clearance_task(
     if not task: raise HTTPException(status_code=404, detail="Clearance task not found")
     if task.assigned_to != current_user.user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not assigned to this task")
-    if not request.notes or not request.notes.strip():
-        raise HTTPException(status_code=400, detail="Completion evidence/notes are required")
+    if not request.evidence or not request.evidence.strip():
+        raise HTTPException(status_code=400, detail="Linked evidence is required before a clearance can be completed")
     
     task.status = ClearanceStatus.CLEARED
     task.completed_at = func.now()
+    task.evidence = request.evidence.strip()
     if request.notes:
         task.notes = (task.notes or "") + f"\nCompletion: {request.notes}"
-        task.evidence = request.notes
     
     await db.flush()
     

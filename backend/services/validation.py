@@ -25,15 +25,18 @@ class ValidationEngine:
     """Engine for validating case submissions against configurable rules."""
     def __init__(self): self.settings = get_settings()
     def get_required_documents(self, deposit_type, deposit_method, institution=None, amount=None):
-        rules = get_rule_engine().get_document_requirements()
-        type_key = deposit_type.value; method_key = deposit_method.value
-        type_rules = rules.get(type_key, {}); method_rules = type_rules.get(method_key, {})
-        mandatory = method_rules.get("mandatory", []); conditional = method_rules.get("conditional", [])
+        engine = get_rule_engine()
+        mandatory = engine.get_document_requirements(deposit_type, deposit_method)
+        conditional_rules = engine.get("validation_rules.conditional_document_requirements", [])
         evaluated = []
-        for cond in conditional:
+        context = {
+            "amount": amount,
+            "institution_type": getattr(getattr(institution, "institution_type", None), "value", getattr(institution, "institution_type", None)),
+        }
+        for cond in conditional_rules:
             condition = cond.get("condition", ""); docs = cond.get("documents", [])
-            if self._evaluate_condition(condition, institution, amount): evaluated.extend(docs)
-        return {"mandatory": mandatory, "conditional": evaluated, "all_required": list(set(mandatory + evaluated))}
+            if engine.evaluate_condition(condition, context): evaluated.extend(docs)
+        return {"mandatory": mandatory, "conditional": evaluated, "conditional_rules": conditional_rules, "all_required": list(dict.fromkeys(mandatory + evaluated))}
     def _evaluate_condition(
         self,
         condition: str,

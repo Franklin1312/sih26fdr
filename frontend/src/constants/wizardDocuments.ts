@@ -24,9 +24,9 @@ export const WIZARD_DOCUMENT_CONFIGS: DepositDocumentConfig[] = [
     depositType: 'fdr',
     depositMethod: 'fdr_rpgf',
     mandatory: [
-      { type: 'fdr_certificate', label: 'FDR Certificate', description: 'Original Fixed Deposit Receipt certificate', required: true, accept: '.pdf,.jpg,.jpeg,.png', maxSizeMB: 10 },
-      { type: 'bank_confirmation', label: 'Bank Confirmation Letter', description: 'Letter from issuing bank confirming FDR details', required: true, accept: '.pdf,.jpg,.jpeg,.png', maxSizeMB: 5 },
-      { type: 'board_resolution', label: 'Board Resolution', description: 'Board resolution authorizing FDR deposit', required: true, accept: '.pdf', maxSizeMB: 5 },
+      { type: 'fdr_original', label: 'Original FDR Document', description: 'Original FDR certificate or bank-issued duplicate', required: true, accept: '.pdf,.jpg,.jpeg,.png', maxSizeMB: 10 },
+      { type: 'payment_proof', label: 'Payment Proof', description: 'Original deposit payment proof', required: true, accept: '.pdf,.jpg,.jpeg,.png', maxSizeMB: 5 },
+      { type: 'loa_eoa', label: 'Latest LoA/EoA', description: 'Current AICTE Letter of Approval or Extension of Approval', required: true, accept: '.pdf', maxSizeMB: 5 },
     ],
     conditional: [
       { type: 'pan_card', label: 'PAN Card', description: 'PAN card of authorized signatory', required: false, conditional: 'If amount >= 50,000 INR', accept: '.pdf,.jpg,.jpeg,.png', maxSizeMB: 2 },
@@ -36,9 +36,9 @@ export const WIZARD_DOCUMENT_CONFIGS: DepositDocumentConfig[] = [
     depositType: 'rpgf',
     depositMethod: 'fdr_rpgf',
     mandatory: [
-      { type: 'rpgf_certificate', label: 'RPGF Certificate', description: 'Revenue Performance Guarantee Fund certificate', required: true, accept: '.pdf,.jpg,.jpeg,.png', maxSizeMB: 10 },
-      { type: 'bank_guarantee', label: 'Bank Guarantee', description: 'Bank guarantee for RPGF', required: true, accept: '.pdf', maxSizeMB: 10 },
-      { type: 'board_resolution', label: 'Board Resolution', description: 'Board resolution authorizing RPGF deposit', required: true, accept: '.pdf', maxSizeMB: 5 },
+      { type: 'fdr_original', label: 'FDR/RPGF Evidence', description: 'FDR certificate or RPGF corpus-fund evidence', required: true, accept: '.pdf,.jpg,.jpeg,.png', maxSizeMB: 10 },
+      { type: 'payment_proof', label: 'Payment Proof', description: 'RPGF payment or online-payment proof', required: true, accept: '.pdf', maxSizeMB: 10 },
+      { type: 'loa_eoa', label: 'Latest LoA/EoA', description: 'Current AICTE Letter of Approval or Extension of Approval', required: true, accept: '.pdf', maxSizeMB: 5 },
     ],
     conditional: [
       { type: 'financial_statement', label: 'Audited Financial Statement', description: 'Latest audited financial statements', required: false, conditional: 'If amount >= 1 Crore INR', accept: '.pdf', maxSizeMB: 20 },
@@ -48,9 +48,9 @@ export const WIZARD_DOCUMENT_CONFIGS: DepositDocumentConfig[] = [
     depositType: 'security_deposit',
     depositMethod: 'security_deposit_refund',
     mandatory: [
-      { type: 'security_deposit_agreement', label: 'Security Deposit Agreement', description: 'Signed security deposit agreement', required: true, accept: '.pdf', maxSizeMB: 10 },
-      { type: 'refund_request', label: 'Refund Request Letter', description: 'Formal request for security deposit refund', required: true, accept: '.pdf', maxSizeMB: 5 },
-      { type: 'completion_certificate', label: 'Work Completion Certificate', description: 'Certificate confirming work completion', required: true, accept: '.pdf,.jpg,.jpeg,.png', maxSizeMB: 5 },
+      { type: 'verification_certificate', label: 'Term Completion Verification', description: 'Verification that the security-deposit term is complete', required: true, accept: '.pdf', maxSizeMB: 10 },
+      { type: 'no_dues_certificate', label: 'No Dues Certificate', description: 'Certificate confirming no outstanding dues', required: true, accept: '.pdf', maxSizeMB: 5 },
+      { type: 'loa_eoa', label: 'Latest LoA/EoA', description: 'Current AICTE Letter of Approval or Extension of Approval', required: true, accept: '.pdf,.jpg,.jpeg,.png', maxSizeMB: 5 },
     ],
     conditional: [
       { type: 'no_dues_certificate', label: 'No Dues Certificate', description: 'Certificate from department confirming no outstanding dues', required: false, conditional: 'Required for government contracts', accept: '.pdf', maxSizeMB: 5 },

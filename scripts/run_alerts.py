@@ -39,13 +39,17 @@ async def check_and_send_alerts(db, rule_engine):
                 and_(
                     LifecycleDate.date_value >= window_start,
                     LifecycleDate.date_value <= window_end,
-                    LifecycleDate.alert_sent == False,
                 )
             )
         )
         due_dates = result.scalars().all()
         
         for ld in due_dates:
+            # A lifecycle date may emit one reminder per configured lead day;
+            # suppress only a duplicate invocation for this same lead day.
+            if ld.alert_sent_at and ld.alert_lead_days == lead_day:
+                if now - ld.alert_sent_at < timedelta(hours=rule_engine.get_alert_dedupe_hours()):
+                    continue
             # Get case and institution info
             case_result = await db.execute(
                 select(DepositCase).where(DepositCase.id == ld.case_id)
@@ -81,7 +85,8 @@ async def check_and_send_alerts(db, rule_engine):
             print(f"  Subject: {template.get('subject', 'N/A')}")
             print(f"  Urgency: {template.get('urgency', 'medium')}")
             
-            # Mark alert as sent
+            # Mark the lead-day reminder as sent after rendering the normalized
+            # structured template.
             ld.alert_sent = True
             ld.alert_sent_at = now
             ld.alert_lead_days = lead_day

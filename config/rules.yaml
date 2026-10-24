@@ -32,23 +32,43 @@ release_checklists:
       document_type: loa_eoa
     - key: pgrc_clearance
       label: PGRC Clearance
-      description: Project Grant Review Committee clearance certificate
+      description: Public Grievance Redressal Cell clearance certificate
       document_type: clearance_certificate
     - key: vigilance_clearance
       label: Vigilance Clearance
-      description: Vigilance department clearance certificate
+      description: Vigilance Cell clearance certificate
       document_type: clearance_certificate
     conditional:
     - key: government_noc
       label: Government NOC
       description: No Objection Certificate from State Government (if applicable)
       document_type: noc
-      condition: institution_type in [government, government_aided]
+      condition: institution_type in ['government', 'government_aided']
     - key: bank_noc
       label: Bank NOC
       description: No Objection Certificate from issuing bank (if applicable)
       document_type: noc
       condition: bank_requires_noc == true
+    - key: external_body_noc
+      label: External Government Body / Bank NOC
+      description: Required hold evidence where financial embezzlement involving a government body or bank is recorded.
+      document_type: external_body_noc
+      condition: external_financial_embezzlement == true
+    - key: no_pending_proceedings_certificate
+      label: No Pending Complaints or Disciplinary Proceedings
+      description: Required for converted private universities and institutions deemed to be universities.
+      document_type: no_pending_proceedings_certificate
+      condition: converted_or_deemed_university == true
+    - key: progressive_closure_no_students_certificate
+      label: Progressive Closure No-Students Certificate
+      description: Certificate from the affiliating University/Board; not required after the deposit has matured.
+      document_type: no_students_certificate
+      condition: progressive_closure == true and deposit_matured != true
+    - key: merger_child_no_students_certificate
+      label: Merger Child-Institution No-Students Certificate
+      description: Certificate that no students are studying in the child institution.
+      document_type: no_students_certificate
+      condition: merger_child_institution == true
   maturity_rtgs:
     request_type: maturity
     deposit_method: rtgs
@@ -77,23 +97,40 @@ release_checklists:
       document_type: loa_eoa
     - key: pgrc_clearance
       label: PGRC Clearance
-      description: Project Grant Review Committee clearance
+      description: Public Grievance Redressal Cell clearance
       document_type: clearance_certificate
     - key: vigilance_clearance
       label: Vigilance Clearance
-      description: Vigilance department clearance
+      description: Vigilance Cell clearance
       document_type: clearance_certificate
     conditional:
     - key: government_noc
       label: Government NOC
       description: State Government NOC (if applicable)
       document_type: noc
-      condition: institution_type in [government, government_aided]
+      condition: institution_type in ['government', 'government_aided']
     - key: bank_noc
       label: Bank NOC
       description: Issuing bank NOC (if applicable)
       document_type: noc
       condition: bank_requires_noc == true
+    - key: external_body_noc
+      label: External Government Body / Bank NOC
+      description: Required hold evidence where financial embezzlement involving a government body or bank is recorded.
+      document_type: external_body_noc
+      condition: external_financial_embezzlement == true
+    - key: no_pending_proceedings_certificate
+      label: No Pending Complaints or Disciplinary Proceedings
+      document_type: no_pending_proceedings_certificate
+      condition: converted_or_deemed_university == true
+    - key: progressive_closure_no_students_certificate
+      label: Progressive Closure No-Students Certificate
+      document_type: no_students_certificate
+      condition: progressive_closure == true and deposit_matured != true
+    - key: merger_child_no_students_certificate
+      label: Merger Child-Institution No-Students Certificate
+      document_type: no_students_certificate
+      condition: merger_child_institution == true
   replacement_fdr_rpgf:
     request_type: replacement
     deposit_method: fdr_rpgf
@@ -129,7 +166,7 @@ release_checklists:
     - key: government_noc
       label: Government NOC
       document_type: noc
-      condition: institution_type in [government, government_aided]
+      condition: institution_type in ['government', 'government_aided']
   refund_security_deposit_refund:
     request_type: refund
     deposit_method: security_deposit_refund
@@ -159,24 +196,24 @@ release_checklists:
       document_type: loa_eoa
     - key: pgrc_clearance
       label: PGRC Clearance
-      description: Project Grant Review Committee clearance
+      description: Public Grievance Redressal Cell clearance
       document_type: clearance_certificate
     conditional:
     - key: government_noc
       label: Government NOC
       description: State Government NOC (if applicable)
       document_type: noc
-      condition: institution_type in [government, government_aided]
+      condition: institution_type in ['government', 'government_aided']
 clearance_tasks:
-- type: financial
-  label: Financial Clearance (PGRC)
-  description: Project Grant Review Committee financial clearance
+- type: pgrc
+  label: Public Grievance Redressal Cell (PGRC) Clearance
+  description: Clearance from the Public Grievance Redressal Cell
   mandatory: true
   assigned_role: CLEARANCE_OFFICER
   evidence_required: true
-- type: legal
-  label: Legal Clearance (Vigilance)
-  description: Vigilance department legal clearance
+- type: vigilance
+  label: Vigilance Cell Clearance
+  description: Clearance from the Vigilance Cell
   mandatory: true
   assigned_role: CLEARANCE_OFFICER
   evidence_required: true
@@ -246,19 +283,37 @@ alerts:
   - in_app
   - email_simulated
   templates:
-    upcoming: 'Upcoming {date_type}: {days} days remaining'
-    overdue: 'OVERDUE: {date_type} was due {days} days ago'
-    clearance_assigned: 'New clearance task assigned: {clearance_type}'
-    clarification_received: Clarification requested for case {case_number}
+    maturity_approaching:
+      subject: "Maturity alert: {case_number}"
+      body: "{date_type} is due in {days} day(s) on {date}. Institution: {institution}."
+      urgency: medium
+    term_ending:
+      subject: "Term-end alert: {case_number}"
+      body: "{date_type} is due in {days} day(s) on {date}. Institution: {institution}."
+      urgency: medium
+    overdue_clearance:
+      subject: "Deadline alert: {case_number}"
+      body: "{date_type} is due in {days} day(s) on {date}. Review the case workflow."
+      urgency: high
+    upcoming:
+      subject: "Upcoming lifecycle event: {case_number}"
+      body: "Upcoming {date_type}: {days} days remaining"
+      urgency: medium
+    overdue:
+      subject: "Overdue lifecycle event: {case_number}"
+      body: "OVERDUE: {date_type} was due {days} days ago"
+      urgency: high
 review_paths:
   fdr_rpgf:
     label: "FDR/RPGF \xE2\u2020\u2019 Approval Bureau NOC"
-    authority: COMPETENT_AUTHORITY
-    description: FDR/RPGF maturity follows Approval Bureau NOC path after all clearances
+    authority: APPROVAL_BUREAU
+    output_document: approval_bureau_noc
+    description: Approval Bureau issues an NOC after authorization and all prerequisite clearances.
   rtgs:
     label: "RTGS \xE2\u2020\u2019 Council Sanction Order"
-    authority: COMPETENT_AUTHORITY
-    description: RTGS maturity follows Council sanction-order path after all clearances
+    authority: COUNCIL
+    output_document: council_sanction_order
+    description: Council issues a sanction order after authorization and all prerequisite clearances.
   sd_refund:
     label: "Security Deposit Refund \xE2\u2020\u2019 Separate Review"
     authority: COMPETENT_AUTHORITY
@@ -275,16 +330,24 @@ validation_rules:
   document_requirements:
     FDR:
     - fdr_original
-    - payment_evidence
+    - payment_proof
     - loa_eoa
     RTGS:
     - rtgs_receipt
-    - payment_evidence
+    - payment_proof
     - loa_eoa
     SECURITY_DEPOSIT:
     - term_completion_certificate
     - no_dues_certificate
     - loa_eoa
+    RPGF:
+    - fdr_original
+    - payment_proof
+    - loa_eoa
+  conditional_document_requirements:
+  - condition: "institution_type in ['government', 'government_aided']"
+    documents:
+    - government_noc
 demo:
   institutions:
   - id: inst_1
@@ -332,6 +395,16 @@ demo:
     email: authority_1@demo.example
     full_name: Competent Authority 1
     role: competent_authority
+    institution_id: null
+  - id: approval_bureau_1
+    email: approval_bureau_1@demo.example
+    full_name: Approval Bureau 1
+    role: approval_bureau
+    institution_id: null
+  - id: council_1
+    email: council_1@demo.example
+    full_name: Council Authority 1
+    role: council
     institution_id: null
   - id: admin_1
     email: admin_1@demo.example
@@ -485,5 +558,18 @@ role_permissions:
   - release:decide
   - document:read_case
   - clearance:read_all
+  APPROVAL_BUREAU:
+    - release:read_fdr_rpgf
+    - release:decide_fdr_rpgf
+    - document:read_case
+    - document:record_authority_output
+  COUNCIL:
+    - release:read_rtgs
+    - release:decide_rtgs
+    - document:read_case
+    - document:record_authority_output
   SYSTEM_ADMIN:
-  - '*'
+    - system:manage
+    - user:manage
+    - config:manage
+    - audit:read

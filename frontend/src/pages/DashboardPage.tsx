@@ -41,7 +41,7 @@ export function DashboardPage() {
   const statCards = [
     {
       title: 'Total Active Deposits',
-      value: stats?.total ?? 6,
+      value: stats?.total ?? 0,
       subtitle: 'Managed across all schemes',
       icon: FileText,
       gradient: 'from-blue-600 to-indigo-600',
@@ -50,7 +50,7 @@ export function DashboardPage() {
     },
     {
       title: 'Total Portfolio Value',
-      value: formatCurrency(stats?.total_amount ?? 13500000),
+      value: formatCurrency(stats?.total_amount ?? 0),
       subtitle: 'FDR & Security Deposits',
       icon: TrendingUp,
       gradient: 'from-emerald-600 to-teal-600',
@@ -59,7 +59,7 @@ export function DashboardPage() {
     },
     {
       title: 'Upcoming Maturity (30d)',
-      value: stats?.upcoming_maturity_count ?? 2,
+      value: stats?.upcoming_maturity_count ?? 0,
       subtitle: 'Requires renewal/release action',
       icon: Calendar,
       gradient: 'from-amber-500 to-orange-500',
@@ -68,7 +68,7 @@ export function DashboardPage() {
     },
     {
       title: 'Pending Action / Overdue',
-      value: stats?.overdue_count ?? 1,
+      value: stats?.overdue_count ?? 0,
       subtitle: 'Deficiencies or clearances pending',
       icon: AlertTriangle,
       gradient: 'from-rose-500 to-red-600',
@@ -77,12 +77,13 @@ export function DashboardPage() {
     },
   ]
 
+  const byStatus = stats?.by_status ?? {}
   const workflowStages = [
-    { name: '1. Registration', count: 1, icon: FileText, color: 'text-slate-600', bg: 'bg-slate-100' },
-    { name: '2. Scrutiny & Review', count: 2, icon: Search, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { name: '3. Multi-Bureau Clearance', count: 1, icon: CheckCircle2, color: 'text-purple-600', bg: 'bg-purple-50' },
-    { name: '4. Authority Approval', count: 1, icon: ShieldCheck, color: 'text-amber-600', bg: 'bg-amber-50' },
-    { name: '5. NOC Issued / Disbursed', count: 1, icon: Send, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { name: '1. Registration', count: (byStatus.draft ?? 0) + (byStatus.submitted ?? 0), icon: FileText, color: 'text-slate-600', bg: 'bg-slate-100' },
+    { name: '2. Scrutiny & Review', count: (byStatus.under_scrutiny ?? 0) + (byStatus.clarification_pending ?? 0), icon: Search, color: 'text-blue-600', bg: 'bg-blue-50' },
+    { name: '3. Multi-Bureau Clearance', count: byStatus.clearance_queue ?? 0, icon: CheckCircle2, color: 'text-purple-600', bg: 'bg-purple-50' },
+    { name: '4. Authority Approval', count: (byStatus.fdr_rpgf_review ?? 0) + (byStatus.rtgs_review ?? 0) + (byStatus.sd_refund_review ?? 0), icon: ShieldCheck, color: 'text-amber-600', bg: 'bg-amber-50' },
+    { name: '5. Decision Recorded', count: (byStatus.final_decision ?? 0) + (byStatus.released ?? 0), icon: Send, color: 'text-emerald-600', bg: 'bg-emerald-50' },
   ]
 
   const filteredCases = casesData?.items.filter((item) => {
@@ -181,7 +182,7 @@ export function DashboardPage() {
               </div>
             </div>
             <span className="rounded-full bg-primary-100 px-2.5 py-0.5 text-xs font-bold text-primary-800">
-              6 Cases in Flow
+              {stats?.total ?? 0} Cases in Flow
             </span>
           </div>
         </CardHeader>

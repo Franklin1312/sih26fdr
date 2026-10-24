@@ -8,6 +8,8 @@ class UserRole(str, enum.Enum):
     INSTITUTION_REP = "institution_rep"
     SCRUTINY_OFFICER = "scrutiny_officer"
     CLEARANCE_OFFICER = "clearance_officer"
+    APPROVAL_BUREAU = "approval_bureau"
+    COUNCIL = "council"
     COMPETENT_AUTHORITY = "competent_authority"
     SYSTEM_ADMIN = "system_admin"
 

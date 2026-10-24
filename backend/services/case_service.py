@@ -91,6 +91,7 @@ class CaseService:
             maturity_date=case_data.maturity_date,
             term_end_date=case_data.term_end_date,
             aicte_clause_ref=case_data.aicte_clause_ref,
+            regulatory_context=case_data.regulatory_context,
             status=CaseStatus.DRAFT,
             is_demo=False,
         )
@@ -138,6 +139,7 @@ class CaseService:
             "maturity_date": case.maturity_date.isoformat() if case.maturity_date else None,
             "term_end_date": case.term_end_date.isoformat() if case.term_end_date else None,
             "aicte_clause_ref": case.aicte_clause_ref,
+            "regulatory_context": case.regulatory_context,
         }
         
         update_data = case_data.model_dump(exclude_unset=True)
@@ -156,6 +158,7 @@ class CaseService:
             "maturity_date": case.maturity_date.isoformat() if case.maturity_date else None,
             "term_end_date": case.term_end_date.isoformat() if case.term_end_date else None,
             "aicte_clause_ref": case.aicte_clause_ref,
+            "regulatory_context": case.regulatory_context,
         }
         
         await audit_service.log_event(

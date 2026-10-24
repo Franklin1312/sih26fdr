@@ -29,6 +29,7 @@ class DepositCaseBase(BaseModel):
     maturity_date: Optional[datetime] = None
     term_end_date: Optional[datetime] = None
     aicte_clause_ref: Optional[str] = Field(default=None, max_length=100)
+    regulatory_context: Dict[str, bool] = Field(default_factory=dict)
 
 
 class DepositCaseCreate(DepositCaseBase):
@@ -48,6 +49,7 @@ class DepositCaseUpdate(BaseModel):
     maturity_date: Optional[datetime] = None
     term_end_date: Optional[datetime] = None
     aicte_clause_ref: Optional[str] = Field(default=None, max_length=100)
+    regulatory_context: Optional[Dict[str, bool]] = None
 
 
 class DepositCaseStatusUpdate(BaseModel):

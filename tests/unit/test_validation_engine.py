@@ -5,6 +5,7 @@ from datetime import date
 from unittest.mock import MagicMock
 
 from backend.services.validation import ValidationEngine, ValidationResult
+from backend.models.enums import DepositMethod, DepositType
 
 
 class TestValidationEngine:
@@ -85,6 +86,11 @@ class TestValidationEngine:
         result = engine.validate_step3_data(data)
         assert result.is_valid is False
         assert any("Must confirm" in e for e in result.errors)
+
+    def test_submission_requirements_use_flat_rule_contract(self, engine):
+        required = engine.get_required_documents(DepositType.FDR, DepositMethod.FDR_RPGF)
+        assert required["mandatory"] == ["fdr_original", "payment_proof", "loa_eoa"]
+        assert required["all_required"] == required["mandatory"]
 
     def test_dates_match_same_format(self, engine):
         assert engine._dates_match("15/01/2024", "15/01/2024") is True

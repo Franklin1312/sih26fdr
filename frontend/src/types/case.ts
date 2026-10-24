@@ -51,6 +51,7 @@ export interface DepositCaseCreate {
   instrument_date: string
   issuing_bank: string
   term_end_date?: string | null
+  regulatory_context?: Record<string, boolean>
 }
 
 export interface DepositCaseUpdate {
@@ -63,6 +64,7 @@ export interface DepositCaseUpdate {
   instrument_date?: string
   issuing_bank?: string
   term_end_date?: string | null
+  regulatory_context?: Record<string, boolean>
 }
 
 export interface DepositCaseStatusUpdate {
@@ -90,6 +92,7 @@ export interface DepositCaseResponse {
   submitted_at: string | null
   assigned_officer_id: string | null
   term_end_date: string | null
+  regulatory_context: Record<string, boolean>
 }
 
 export interface DepositCaseDetail extends DepositCaseResponse {

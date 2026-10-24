@@ -52,6 +52,8 @@ async def lifespan(app: FastAPI):
         UserResponse(id="scrutiny_1", email="scrutiny_1@demo.example", full_name="Scrutiny Officer 1", role=UserRole.SCRUTINY_OFFICER, is_active=True, created_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc)),
         UserResponse(id="clearance_1", email="clearance_1@demo.example", full_name="Clearance Officer 1", role=UserRole.CLEARANCE_OFFICER, is_active=True, created_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc)),
         UserResponse(id="authority_1", email="authority_1@demo.example", full_name="Competent Authority 1", role=UserRole.COMPETENT_AUTHORITY, is_active=True, created_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc)),
+        UserResponse(id="approval_bureau_1", email="approval_bureau_1@demo.example", full_name="Approval Bureau 1", role=UserRole.APPROVAL_BUREAU, is_active=True, created_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc)),
+        UserResponse(id="council_1", email="council_1@demo.example", full_name="Council Authority 1", role=UserRole.COUNCIL, is_active=True, created_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc)),
         UserResponse(id="admin_1", email="admin_1@demo.example", full_name="System Admin 1", role=UserRole.SYSTEM_ADMIN, is_active=True, created_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc)),
     ]
     for user in demo_users:
@@ -157,6 +159,8 @@ async def create_demo_data():
             ("inst_rep_1", "inst_rep_1@demo.example", "Institution Rep 1", UserRole.INSTITUTION_REP, "inst_1"),
             ("scrutiny_1", "scrutiny_1@demo.example", "Scrutiny Officer 1", UserRole.SCRUTINY_OFFICER, None),
             ("clearance_1", "clearance_1@demo.example", "Clearance Officer 1", UserRole.CLEARANCE_OFFICER, None),
+            ("approval_bureau_1", "approval_bureau_1@demo.example", "Approval Bureau 1", UserRole.APPROVAL_BUREAU, None),
+            ("council_1", "council_1@demo.example", "Council Authority 1", UserRole.COUNCIL, None),
             ("authority_1", "authority_1@demo.example", "Competent Authority 1", UserRole.COMPETENT_AUTHORITY, None),
             ("admin_1", "admin_1@demo.example", "System Admin 1", UserRole.SYSTEM_ADMIN, None),
         ]

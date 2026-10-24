@@ -83,6 +83,7 @@ def _apply_sqlite_compat_columns(connection) -> None:
         "deposit_cases": {
             "instrument_date": "DATETIME",
             "term_end_date": "DATETIME",
+            "regulatory_context": "JSON NOT NULL DEFAULT '{}'",
         },
         "deposit_evidence": {
             "file_hash": "VARCHAR(64)",

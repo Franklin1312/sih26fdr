@@ -50,6 +50,9 @@ class DepositCase(Base):
     maturity_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     term_end_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     aicte_clause_ref: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    # Explicit, evidence-backed Clause 6.46 circumstances.  These are facts
+    # supplied for a case, never inferred from a generic institution label.
+    regulatory_context: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
 
     # Status workflow
     status: Mapped[CaseStatus] = mapped_column(Enum(CaseStatus), default=CaseStatus.DRAFT, nullable=False, index=True)
