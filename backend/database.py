@@ -89,7 +89,7 @@ def _apply_sqlite_compat_columns(connection) -> None:
             "is_deleted": "BOOLEAN NOT NULL DEFAULT 0",
             "is_demo": "BOOLEAN NOT NULL DEFAULT 0",
         },
-        "release_requests": {"updated_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"},
+        "release_requests": {"updated_at": "DATETIME"},
     }
     for table, columns in additions.items():
         if not inspector.has_table(table):

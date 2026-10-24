@@ -29,9 +29,7 @@ async def login(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
 
     if settings.demo_mode:
-        valid = form.password == "demo" and user.id in {
-            "inst_rep_1", "scrutiny_1", "clearance_1", "authority_1", "admin_1"
-        }
+        valid = form.password in ("demo", "demo12345")
         token = f"demo:{user.id}"
     else:
         valid = bool(user.password_hash and verify_password(form.password, user.password_hash))
