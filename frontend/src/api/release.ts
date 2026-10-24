@@ -33,8 +33,8 @@ export const releaseApi = {
     return response.data
   },
 
-  async makeDecision(requestId: string, data: ReleaseDecisionRequest): Promise<{ success: boolean }> {
-    const response = await apiClient.axios.post(`/release/requests/${requestId}/decision`, data)
+  async makeDecision(caseId: string, data: ReleaseDecisionRequest): Promise<{ message: string }> {
+    const response = await apiClient.axios.post(`/release/cases/${caseId}/decide`, data)
     return response.data
   },
 

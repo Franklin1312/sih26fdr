@@ -31,11 +31,29 @@ export interface UserResponse {
 }
 
 export type UserRole =
-  | 'INSTITUTION_REP'
-  | 'SCRUTINY_OFFICER'
-  | 'CLEARANCE_OFFICER'
-  | 'COMPETENT_AUTHORITY'
-  | 'SYSTEM_ADMIN'
+  | 'institution_rep'
+  | 'scrutiny_officer'
+  | 'clearance_officer'
+  | 'competent_authority'
+  | 'system_admin'
+
+export type User = UserResponse
+
+export interface UserCreate {
+  email: string
+  full_name: string
+  role: UserRole
+  institution_id?: string | null
+  password: string
+}
+
+export interface UserUpdate {
+  full_name?: string
+  role?: UserRole
+  institution_id?: string | null
+  is_active?: boolean
+  password?: string
+}
 
 export interface LoginRequest {
   username: string

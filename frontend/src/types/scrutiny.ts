@@ -1,5 +1,4 @@
-import type { PaginatedResponse, DepositCaseResponse, DepositEvidenceResponse, CaseEventResponse, CaseStatus } from './case'
-import type { ClarificationRequestResponse } from './wizard'
+import type { PaginatedResponse, DepositCaseResponse, DepositCaseDetail, CaseStatus } from './case'
 
 export interface ScrutinyStats {
   total_assigned: number
@@ -10,11 +9,9 @@ export interface ScrutinyStats {
 
 export interface ScrutinyQueueResponse extends PaginatedResponse<DepositCaseResponse> {}
 
-export interface ScrutinyCaseDetail extends DepositCaseResponse {
-  documents: DepositEvidenceResponse[]
-  events: CaseEventResponse[]
-  clarifications: ClarificationRequestResponse[]
-}
+export type ScrutinyCaseDetail = DepositCaseDetail
+
+export type { CaseStatus }
 
 export interface TransitionRequest {
   new_status: CaseStatus

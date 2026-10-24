@@ -1,5 +1,5 @@
 import { apiClient } from './core'
-import type { LoginRequest, TokenResponse, UserResponse } from '../types/auth'
+import type { LoginRequest, TokenResponse, UserResponse, UserCreate, UserUpdate, PaginationParams, PaginatedResponse } from '../types/auth'
 
 export const authApi = {
   async login(credentials: LoginRequest): Promise<TokenResponse> {
@@ -22,6 +22,23 @@ export const authApi = {
 
   async getCurrentUser(): Promise<UserResponse> {
     const response = await apiClient.axios.get('/users/me')
+    return response.data
+  },
+}
+
+export const usersApi = {
+  async list(params: PaginationParams = {}): Promise<PaginatedResponse<UserResponse>> {
+    const response = await apiClient.axios.get('/users', { params })
+    return response.data
+  },
+
+  async create(data: UserCreate): Promise<UserResponse> {
+    const response = await apiClient.axios.post('/users', data)
+    return response.data
+  },
+
+  async update(id: string, data: UserUpdate): Promise<UserResponse> {
+    const response = await apiClient.axios.patch(`/users/${id}`, data)
     return response.data
   },
 }

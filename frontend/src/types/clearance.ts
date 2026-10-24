@@ -1,4 +1,4 @@
-import type { PaginatedResponse, DepositType, DepositMethod, CaseStatus } from './case'
+import type { DepositType, DepositMethod, CaseStatus } from './case'
 
 export type ClearanceStatus = 'pending' | 'claimed' | 'in_progress' | 'cleared' | 'rejected'
 
@@ -29,16 +29,23 @@ export interface ClearanceQueueItem {
   deposit_type: DepositType
   deposit_method: DepositMethod
   amount: number
-  maturity_date: string | null
   status: CaseStatus
-  tasks: Array<{
+  assigned_officer_id: string | null
+  created_at: string
+  submitted_at: string | null
+  clearance_tasks: Array<{
     id: string
     clearance_type: ClearanceType
     status: ClearanceStatus
   }>
 }
 
-export interface ClearanceQueueResponse extends PaginatedResponse<ClearanceQueueItem> {}
+export interface ClearanceQueueResponse {
+  items: ClearanceQueueItem[]
+  total: number
+  page: number
+  page_size: number
+}
 
 export interface ClearanceClaimRequest {
   task_id: string

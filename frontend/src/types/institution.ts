@@ -14,6 +14,12 @@ export interface InstitutionResponse {
   released_cases?: number
 }
 
+export type Institution = InstitutionResponse
+
+export interface InstitutionFormData extends InstitutionCreate {
+  is_active: boolean
+}
+
 export interface InstitutionCreate {
   name: string
   code: string
