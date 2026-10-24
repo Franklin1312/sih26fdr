@@ -3,6 +3,7 @@ import { Layout } from '../components/layout'
 import { DashboardPage } from '../pages/DashboardPage'
 import { LoginPage } from '../pages/auth/LoginPage'
 import { WizardPage } from '../pages/wizard'
+import { MyCasesPage, CaseDetailPage } from '../pages/cases'
 
 export const router = createBrowserRouter([
   {
@@ -19,8 +20,8 @@ export const router = createBrowserRouter([
       { path: '/wizard/:caseId/step2', element: <WizardPage /> },
       { path: '/wizard/:caseId/step3', element: <WizardPage /> },
       { path: '/wizard/:caseId/step4', element: <WizardPage /> },
-      { path: '/my-cases', element: <div>My Cases Page - Coming Soon</div> },
-      { path: '/cases/:id', element: <div>Case Detail Page - Coming Soon</div> },
+      { path: '/my-cases', element: <MyCasesPage /> },
+      { path: '/cases/:id', element: <CaseDetailPage /> },
       { path: '/scrutiny', element: <div>Scrutiny Page - Coming Soon</div> },
       { path: '/clearance', element: <div>Clearance Page - Coming Soon</div> },
       { path: '/release', element: <div>Release Page - Coming Soon</div> },

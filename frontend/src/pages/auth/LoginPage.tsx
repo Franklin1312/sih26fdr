@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../../components/ui/Card'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
-import { useAuth } from '../../auth/AuthContext'
+import { useAuth } from '../../auth/useAuth'
 import { toast } from 'sonner'
 
 const loginSchema = z.object({

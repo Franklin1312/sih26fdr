@@ -72,6 +72,7 @@ export const casesApi = {
     description?: string
   ): Promise<DepositEvidenceUploadResponse> {
     const formData = new FormData()
+    formData.append('case_id', caseId)
     formData.append('file', file)
     formData.append('document_type', documentType)
     if (description) {
@@ -79,7 +80,7 @@ export const casesApi = {
     }
 
     const response = await apiClient.axios.post(
-      `/cases/${caseId}/documents`,
+      '/cases',
       formData,
       { headers: { 'Content-Type': 'multipart/form-data' } }
     )
@@ -88,19 +89,22 @@ export const casesApi = {
 
   // List documents for a case
   async listDocuments(caseId: string, params: PaginationParams = {}): Promise<DepositEvidenceListResponse> {
-    const response = await apiClient.axios.get(`/cases/${caseId}/documents`, { params })
+    const response = await apiClient.axios.get('/cases', { params: { ...params, case_id: caseId } })
     return response.data
   },
 
   // Get document by ID
   async getDocument(documentId: string): Promise<DepositEvidenceResponse> {
-    const response = await apiClient.axios.get(`/documents/${documentId}`)
+    const response = await apiClient.axios.get(`/cases/${documentId}`)
     return response.data
   },
 
   // Download document
   async downloadDocument(documentId: string): Promise<Blob> {
-    const response = await apiClient.axios.get(`/documents/${documentId}/download`, {
+    const { data } = await apiClient.axios.get(`/cases/${documentId}/download`)
+    const formData = new FormData()
+    formData.append('token', data.download_token)
+    const response = await apiClient.axios.post(`/cases/${documentId}/download`, formData, {
       responseType: 'blob',
     })
     return response.data
@@ -108,6 +112,6 @@ export const casesApi = {
 
   // Delete document
   async deleteDocument(documentId: string): Promise<void> {
-    await apiClient.axios.delete(`/documents/${documentId}`)
+    await apiClient.axios.delete(`/cases/${documentId}`)
   },
 }

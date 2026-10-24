@@ -99,6 +99,7 @@ frontend/Thumbs.db
 # Logs
 frontend/*.log
 frontend/logs/
+frontend/build_output.txt
 
 # TypeScript
 frontend/*.tsbuildinfo

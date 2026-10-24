@@ -1,6 +1,6 @@
 import { Bell, User, ChevronDown, LogOut } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
-import { useAuth } from '../../auth/AuthContext'
+import { useAuth } from '../../auth/useAuth'
 import { Button } from '../ui'
 
 export function Header() {

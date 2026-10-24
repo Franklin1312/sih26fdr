@@ -138,7 +138,7 @@ export interface DepositEvidenceUploadResponse {
   extracted_data: Record<string, unknown> | null
 }
 
-export interface DepositEvidenceListResponse extends PaginatedResponse<DepositEvidenceResponse> {}
+export type DepositEvidenceListResponse = PaginatedResponse<DepositEvidenceResponse>
 
 export interface DashboardStats {
   total: number
@@ -150,7 +150,7 @@ export interface DashboardStats {
   upcoming_maturity_count: number
 }
 
-export interface DepositCaseDashboardStats extends DashboardStats {}
+export type DepositCaseDashboardStats = DashboardStats
 
 export interface CaseEventResponse {
   id: string

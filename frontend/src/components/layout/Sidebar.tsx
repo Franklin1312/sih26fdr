@@ -15,7 +15,7 @@ import {
   X,
 } from 'lucide-react'
 import { useState } from 'react'
-import { useAuth } from '../../auth/AuthContext'
+import { useAuth } from '../../auth/useAuth'
 import { getRoleLabel } from '../../utils/helpers'
 
 interface NavItem {

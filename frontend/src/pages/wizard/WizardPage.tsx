@@ -21,13 +21,13 @@ export function WizardPage({ isNew = false }: WizardPageProps) {
   
   const {
     wizardState,
+    caseId: wizardCaseId,
     isLoading,
     currentStep,
     formData,
     saveStep1,
     saveStep2,
     saveStep3,
-    submitStep4,
     goToStep,
     canProceedToStep,
     clearStorage,
@@ -93,6 +93,7 @@ export function WizardPage({ isNew = false }: WizardPageProps) {
       case 2:
         return (
           <Step2Documents
+            caseId={wizardCaseId}
             depositType={formData.step1?.deposit_type || ''}
             depositMethod={formData.step1?.deposit_method}
             initialDocuments={formData.step2?.documents}
