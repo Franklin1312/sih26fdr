@@ -35,6 +35,10 @@ class Base(DeclarativeBase):
     pass
 
 
+# Import models to register them with Base metadata (after Base is defined)
+import backend.models  # noqa: F401,E402
+
+
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Dependency for getting DB session."""
     async with async_session_maker() as session:
