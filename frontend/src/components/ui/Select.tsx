@@ -30,7 +30,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(
           id={selectId}
           className={cn(
             'input',
-            error && 'border-red-500 focus:ring-red-500',
+            error && 'border-red-500 focus:border-red-500 focus:ring-red-100',
             className
           )}
           aria-invalid={error ? 'true' : 'false'}

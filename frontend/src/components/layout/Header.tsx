@@ -1,7 +1,12 @@
-import { Bell, User, ChevronDown, LogOut } from 'lucide-react'
+import { Bell, ChevronDown, LogOut } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useAuth } from '../../auth/useAuth'
-import { Button } from '../ui'
+import { getRoleLabel } from '../../utils/helpers'
+
+function initials(name?: string) {
+  if (!name) return '?'
+  return name.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]!.toUpperCase()).join('')
+}
 
 export function Header() {
   const { user, logout } = useAuth()
@@ -19,51 +24,53 @@ export function Header() {
   }, [])
 
   return (
-    <header className="sticky top-0 z-30 bg-white border-b border-gray-200 lg:ml-64 transition-all duration-300">
-      <div className="flex items-center justify-between h-16 px-4 sm:px-6">
-        <div className="flex items-center gap-4">
-          <h1 className="text-lg font-semibold text-gray-900">SIH26265 - Deposit Refund Portal</h1>
-        </div>
+    <header className="sticky top-0 z-30 border-b border-gray-200 bg-white/85 backdrop-blur-md">
+      <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+        <h1 className="ml-12 font-display text-[15px] font-semibold text-gray-900 lg:ml-0">
+          <span className="hidden sm:inline">SIH26265 · </span>Deposit Refund Portal
+        </h1>
 
-        <div className="flex items-center gap-4">
-          {/* Notifications */}
-          <div className="relative">
-            <Button variant="ghost" size="sm" className="relative">
-              <Bell className="h-5 w-5 text-gray-600" />
-              <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-red-500 text-white text-xs flex items-center justify-center">
-                3
-              </span>
-            </Button>
-          </div>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <button
+            className="relative flex h-9 w-9 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100 hover:text-gray-900"
+            aria-label="Notifications (3 unread)"
+          >
+            <Bell className="h-5 w-5" aria-hidden="true" />
+            <span className="absolute right-0.5 top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white ring-2 ring-white">
+              3
+            </span>
+          </button>
 
-          {/* User dropdown */}
+          <div className="h-6 w-px bg-gray-200" aria-hidden="true" />
+
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setShowDropdown(!showDropdown)}
-              className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+              className="flex items-center gap-2.5 rounded-lg p-1.5 pr-2 transition-colors hover:bg-gray-100"
               aria-expanded={showDropdown}
               aria-haspopup="true"
             >
-              <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
-                <User className="h-5 w-5 text-primary-600" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-primary-700">
+                {initials(user?.full_name)}
               </div>
-              <span className="hidden sm:block text-sm font-medium text-gray-700">
-                {user?.full_name}
-              </span>
-              <ChevronDown className="h-4 w-4 text-gray-500" />
+              <div className="hidden text-left leading-tight sm:block">
+                <p className="text-sm font-medium text-gray-900">{user?.full_name}</p>
+                <p className="text-[11px] text-gray-500">{user ? getRoleLabel(user.role) : ''}</p>
+              </div>
+              <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${showDropdown ? 'rotate-180' : ''}`} aria-hidden="true" />
             </button>
 
             {showDropdown && (
-              <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-50">
-                <div className="px-4 py-2 border-b border-gray-100">
-                  <p className="text-sm font-medium text-gray-900">{user?.full_name}</p>
-                  <p className="text-xs text-gray-500">{user?.email}</p>
+              <div className="animate-slide-in absolute right-0 z-50 mt-2 w-60 overflow-hidden rounded-xl border border-gray-200 bg-white py-1 shadow-[var(--shadow-pop)]">
+                <div className="border-b border-gray-100 px-4 py-3">
+                  <p className="text-sm font-semibold text-gray-900">{user?.full_name}</p>
+                  <p className="truncate text-xs text-gray-500">{user?.email}</p>
                 </div>
                 <button
                   onClick={logout}
-                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                  className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-50"
                 >
-                  <LogOut className="h-4 w-4" />
+                  <LogOut className="h-4 w-4 text-gray-400" aria-hidden="true" />
                   Logout
                 </button>
               </div>

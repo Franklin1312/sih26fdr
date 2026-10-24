@@ -2,8 +2,8 @@ import { NavLink } from 'react-router-dom'
 import { cn } from '../../utils/helpers'
 import {
   LayoutDashboard,
-  FileText,
-  Search,
+  FilePlus2,
+  FolderOpen,
   ClipboardCheck,
   Gavel,
   Send,
@@ -13,6 +13,7 @@ import {
   LogOut,
   Menu,
   X,
+  Landmark,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '../../auth/useAuth'
@@ -21,97 +22,146 @@ import { getRoleLabel } from '../../utils/helpers'
 interface NavItem {
   label: string
   path: string
-  icon: React.ReactNode
+  icon: React.ElementType
   roles: string[]
 }
 
-const navItems: NavItem[] = [
-  { label: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard className="h-5 w-5" />, roles: ['INSTITUTION_REP', 'SCRUTINY_OFFICER', 'CLEARANCE_OFFICER', 'COMPETENT_AUTHORITY', 'SYSTEM_ADMIN'] },
-  { label: 'New Submission', path: '/wizard/new', icon: <FileText className="h-5 w-5" />, roles: ['INSTITUTION_REP'] },
-  { label: 'My Cases', path: '/my-cases', icon: <Search className="h-5 w-5" />, roles: ['INSTITUTION_REP'] },
-  { label: 'Scrutiny Queue', path: '/scrutiny', icon: <ClipboardCheck className="h-5 w-5" />, roles: ['SCRUTINY_OFFICER', 'SYSTEM_ADMIN'] },
-  { label: 'Clearance Queue', path: '/clearance', icon: <Gavel className="h-5 w-5" />, roles: ['CLEARANCE_OFFICER', 'SYSTEM_ADMIN'] },
-  { label: 'Release Queue', path: '/release', icon: <Send className="h-5 w-5" />, roles: ['COMPETENT_AUTHORITY', 'SYSTEM_ADMIN'] },
-  { label: 'Users', path: '/admin/users', icon: <Users className="h-5 w-5" />, roles: ['SYSTEM_ADMIN'] },
-  { label: 'Institutions', path: '/admin/institutions', icon: <Building2 className="h-5 w-5" />, roles: ['SYSTEM_ADMIN'] },
-  { label: 'Settings', path: '/settings', icon: <Settings className="h-5 w-5" />, roles: ['SYSTEM_ADMIN'] },
+interface NavGroup {
+  title: string
+  items: NavItem[]
+}
+
+const navGroups: NavGroup[] = [
+  {
+    title: 'Overview',
+    items: [
+      { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, roles: ['institution_rep', 'scrutiny_officer', 'clearance_officer', 'competent_authority', 'system_admin'] },
+    ],
+  },
+  {
+    title: 'Deposits',
+    items: [
+      { label: 'New Submission', path: '/wizard/new', icon: FilePlus2, roles: ['institution_rep'] },
+      { label: 'My Cases', path: '/my-cases', icon: FolderOpen, roles: ['institution_rep'] },
+    ],
+  },
+  {
+    title: 'Workflow',
+    items: [
+      { label: 'Scrutiny Queue', path: '/scrutiny', icon: ClipboardCheck, roles: ['scrutiny_officer', 'system_admin'] },
+      { label: 'Clearance Queue', path: '/clearance', icon: Gavel, roles: ['clearance_officer', 'system_admin'] },
+      { label: 'Release Queue', path: '/release', icon: Send, roles: ['competent_authority', 'system_admin'] },
+    ],
+  },
+  {
+    title: 'Administration',
+    items: [
+      { label: 'Users', path: '/admin/users', icon: Users, roles: ['system_admin'] },
+      { label: 'Institutions', path: '/admin/institutions', icon: Building2, roles: ['system_admin'] },
+      { label: 'Settings', path: '/settings', icon: Settings, roles: ['system_admin'] },
+    ],
+  },
 ]
+
+function initials(name?: string) {
+  if (!name) return '?'
+  return name.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]!.toUpperCase()).join('')
+}
 
 export function Sidebar() {
   const { user, logout } = useAuth()
   const [isMobileOpen, setIsMobileOpen] = useState(false)
 
-  const filteredNavItems = navItems.filter((item) =>
-    user ? item.roles.includes(user.role) : false
-  )
+  const groups = navGroups
+    .map((g) => ({ ...g, items: g.items.filter((i) => (user ? i.roles.includes(user.role) : false)) }))
+    .filter((g) => g.items.length > 0)
 
   return (
     <>
       <button
-        className="lg:hidden fixed top-4 left-4 z-50 btn-primary"
+        className="fixed left-4 top-3.5 z-50 flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-white text-gray-700 shadow-sm transition-colors hover:bg-gray-50 lg:hidden"
         onClick={() => setIsMobileOpen(!isMobileOpen)}
         aria-label="Toggle menu"
+        aria-expanded={isMobileOpen}
       >
         {isMobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
       </button>
 
       <aside
         className={cn(
-          'fixed lg:static inset-y-0 left-0 z-40 bg-white border-r border-gray-200 transition-all duration-300 flex flex-col',
-          isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+          'fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-gray-200 bg-white transition-transform duration-300',
+          isMobileOpen ? 'translate-x-0 shadow-[var(--shadow-pop)]' : '-translate-x-full lg:translate-x-0'
         )}
       >
-        <div className="flex items-center h-16 px-4 border-b border-gray-200">
-          <div className="flex items-center space-x-3">
-            <div className="h-8 w-8 rounded-lg bg-primary-600 flex items-center justify-center">
-              <span className="text-white font-bold text-sm">S</span>
+        <div className="flex h-16 items-center border-b border-gray-100 px-5">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary-600 text-white shadow-sm">
+              <Landmark className="h-5 w-5" aria-hidden="true" />
             </div>
-            <span className="font-semibold text-gray-900">SIH26265</span>
+            <div className="leading-tight">
+              <p className="font-display text-[15px] font-bold text-gray-900">SIH26265</p>
+              <p className="text-[11px] font-medium text-gray-500">Deposit Refund Portal</p>
+            </div>
           </div>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto" role="navigation" aria-label="Main navigation">
-          {filteredNavItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              className={({ isActive: active }) => cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
-                active
-                  ? 'bg-primary-50 text-primary-700'
-                  : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
-              )}
-              onClick={() => setIsMobileOpen(false)}
-            >
-              <span className="flex-shrink-0">{item.icon}</span>
-              <span>{item.label}</span>
-            </NavLink>
+        <nav className="flex-1 space-y-6 overflow-y-auto px-3 py-5" aria-label="Main navigation">
+          {groups.map((group) => (
+            <div key={group.title}>
+              <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-wider text-gray-400">{group.title}</p>
+              <div className="space-y-0.5">
+                {group.items.map((item) => (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setIsMobileOpen(false)}
+                    className={({ isActive }) =>
+                      cn(
+                        'group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-200',
+                        isActive
+                          ? 'bg-primary-50 text-primary-700'
+                          : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
+                      )
+                    }
+                  >
+                    {({ isActive }) => (
+                      <>
+                        {isActive && <span className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary-600" aria-hidden="true" />}
+                        <item.icon className={cn('h-[18px] w-[18px] shrink-0', isActive ? 'text-primary-600' : 'text-gray-400 group-hover:text-gray-600')} aria-hidden="true" />
+                        <span>{item.label}</span>
+                      </>
+                    )}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
 
-        <div className="p-4 border-t border-gray-200">
+        <div className="border-t border-gray-100 p-3">
           {user && (
-            <div className="mb-4">
-              <p className="text-sm font-medium text-gray-900 truncate">{user.full_name}</p>
-              <p className="text-xs text-gray-500 capitalize">{getRoleLabel(user.role).toLowerCase()}</p>
+            <div className="mb-2 flex items-center gap-3 rounded-xl bg-gray-50 p-3">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary-100 text-xs font-semibold text-primary-700">
+                {initials(user.full_name)}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-gray-900">{user.full_name}</p>
+                <p className="truncate text-xs text-gray-500">{getRoleLabel(user.role)}</p>
+              </div>
             </div>
           )}
           <button
             onClick={logout}
-            className="flex items-center gap-3 w-full px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-red-50 hover:text-red-700"
           >
-            <LogOut className="h-5 w-5 flex-shrink-0" />
+            <LogOut className="h-[18px] w-[18px] shrink-0" aria-hidden="true" />
             <span>Logout</span>
           </button>
         </div>
       </aside>
 
       {isMobileOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
-          onClick={() => setIsMobileOpen(false)}
-          aria-hidden="true"
-        />
+        <div className="fixed inset-0 z-30 bg-gray-900/40 backdrop-blur-[2px] lg:hidden" onClick={() => setIsMobileOpen(false)} aria-hidden="true" />
       )}
     </>
   )

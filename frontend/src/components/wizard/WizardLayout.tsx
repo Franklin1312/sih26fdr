@@ -26,9 +26,9 @@ export function WizardLayout({
   return (
     <div className={cn('wizard-layout', className)}>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{title}</h1>
+        <h1 className="page-title">{title}</h1>
         {description && (
-          <p className="mt-1 text-gray-600">{description}</p>
+          <p className="page-subtitle">{description}</p>
         )}
       </div>
       

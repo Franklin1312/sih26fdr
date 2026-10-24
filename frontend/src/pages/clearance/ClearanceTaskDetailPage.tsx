@@ -125,7 +125,7 @@ export function ClearanceTaskDetailPage() {
             <ArrowLeft className="h-4 w-4 mr-1" /> Back to Queue
           </Button>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Clearance Task Detail</h1>
+            <h1 className="page-title">Clearance Task Detail</h1>
             <p className="text-gray-500">{task.case_number} - {typeLabel}</p>
           </div>
         </div>

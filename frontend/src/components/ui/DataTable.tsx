@@ -129,15 +129,15 @@ export function DataTable<T extends object>({
         </div>
       )}
 
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
+      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-[var(--shadow-card)]">
         <table className="w-full" role="table">
-          <thead className="bg-gray-50">
+          <thead className="bg-gray-50/80 border-b border-gray-200">
             <tr>
               {columns.map(col => (
                 <th
                   key={col.key}
                   className={cn(
-                    'px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider',
+                    'px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider',
                     col.align === 'center' && 'text-center',
                     col.align === 'right' && 'text-right',
                     col.sortable && sortable && 'cursor-pointer hover:bg-gray-100',
@@ -154,10 +154,10 @@ export function DataTable<T extends object>({
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200 bg-white">
+          <tbody className="divide-y divide-gray-100 bg-white">
             {data.length === 0 ? (
               <tr>
-                <td colSpan={columns.length} className="px-4 py-8 text-center text-gray-500">
+                <td colSpan={columns.length} className="px-4 py-12 text-center text-sm text-gray-500">
                   {emptyMessage}
                 </td>
               </tr>
@@ -166,7 +166,7 @@ export function DataTable<T extends object>({
                 <tr
                   key={keyExtractor(row)}
                   className={cn(
-                    'hover:bg-gray-50 transition-colors',
+                    'hover:bg-primary-50/40 transition-colors duration-150',
                     onRowClick && 'cursor-pointer',
                     rowClassName?.(row)
                   )}
@@ -176,7 +176,7 @@ export function DataTable<T extends object>({
                     <td
                       key={col.key}
                       className={cn(
-                        'px-4 py-3 text-sm text-gray-900',
+                        'px-4 py-3.5 text-sm text-gray-700',
                         col.align === 'center' && 'text-center',
                         col.align === 'right' && 'text-right',
                         col.className
@@ -213,7 +213,7 @@ export function DataTable<T extends object>({
               <Button variant="outline" size="sm" onClick={() => pagination.onPageChange(pagination.page - 1)} disabled={pagination.page === 1} aria-label="Previous page">
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="px-3 text-sm text-gray-600">Page {pagination.page} of {Math.ceil(pagination.total / pagination.pageSize)}</span>
+              <span className="px-3 text-sm text-gray-600 whitespace-nowrap">Page {pagination.page} of {Math.ceil(pagination.total / pagination.pageSize)}</span>
               <Button variant="outline" size="sm" onClick={() => pagination.onPageChange(pagination.page + 1)} disabled={pagination.page >= Math.ceil(pagination.total / pagination.pageSize)} aria-label="Next page">
                 <ChevronRight className="h-4 w-4" />
               </Button>

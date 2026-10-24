@@ -13,7 +13,7 @@ Card.displayName = 'Card'
 
 export const CardHeader = forwardRef<HTMLDivElement, CardProps>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('px-6 py-4 border-b border-gray-200', className)} {...props} />
+    <div ref={ref} className={cn('px-6 py-4 border-b border-gray-100', className)} {...props} />
   )
 )
 
@@ -21,7 +21,7 @@ CardHeader.displayName = 'CardHeader'
 
 export const CardTitle = forwardRef<HTMLHeadingElement, HTMLAttributes<HTMLHeadingElement>>(
   ({ className, ...props }, ref) => (
-    <h3 ref={ref} className={cn('text-lg font-semibold text-gray-900', className)} {...props} />
+    <h3 ref={ref} className={cn('text-base font-semibold text-gray-900 font-display', className)} {...props} />
   )
 )
 
@@ -45,7 +45,7 @@ CardContent.displayName = 'CardContent'
 
 export const CardFooter = forwardRef<HTMLDivElement, CardProps>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn('px-6 py-4 border-t border-gray-200 bg-gray-50 rounded-b-xl', className)} {...props} />
+    <div ref={ref} className={cn('px-6 py-4 border-t border-gray-100 bg-gray-50/70 rounded-b-xl', className)} {...props} />
   )
 )
 

@@ -49,7 +49,7 @@ interface TabsListProps {
 export function TabsList({ children, className }: TabsListProps) {
   return (
     <div
-      className={cn('flex gap-1 bg-gray-100 rounded-lg p-1', className)}
+      className={cn('inline-flex gap-1 bg-gray-100 rounded-xl p-1', className)}
       role="tablist"
       aria-label="Tabs"
     >
@@ -78,12 +78,12 @@ export function TabsTrigger({ value, children, disabled = false, className }: Ta
       disabled={disabled}
       onClick={() => !disabled && setActiveTab(value)}
       className={cn(
-        'px-4 py-2 text-sm font-medium rounded-md transition-colors',
+        'px-4 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 cursor-pointer',
         'focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
         'disabled:opacity-50 disabled:cursor-not-allowed',
         isActive
-          ? 'bg-white text-primary-600 shadow-sm'
-          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-200',
+          ? 'bg-white text-primary-700 shadow-sm'
+          : 'text-gray-600 hover:text-gray-900',
         className
       )}
     >

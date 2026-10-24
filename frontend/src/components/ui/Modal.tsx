@@ -47,12 +47,12 @@ export function ModalRoot({ open, onOpenChange, children, className }: ModalRoot
     <ModalContext.Provider value={{ close }}>
       <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div
-          className="fixed inset-0 bg-black/50 animate-fade-in"
+          className="fixed inset-0 bg-gray-900/40 backdrop-blur-[2px] animate-fade-in"
           onClick={close}
           aria-hidden="true"
         />
         <div className={cn(
-          'fixed inset-0 z-50 flex items-center justify-center p-4 animate-slide-in',
+          'fixed inset-0 z-50 flex items-center justify-center p-4',
           className
         )}>
           {children}
@@ -80,7 +80,7 @@ export function ModalContent({ children, className, size = 'md' }: ModalContentP
   return (
     <div
       className={cn(
-        'w-full bg-white rounded-xl shadow-xl',
+        'w-full bg-white rounded-2xl border border-gray-200 shadow-[var(--shadow-pop)] animate-slide-in',
         sizeClasses[size],
         className
       )}
@@ -100,7 +100,7 @@ export function ModalHeader({ children, className, showClose = true }: ModalHead
   const { close } = useModalContext();
 
   return (
-    <div className={cn('flex items-center justify-between p-4 border-b border-gray-200', className)}>
+    <div className={cn('flex items-center justify-between px-5 py-4 border-b border-gray-100', className)}>
       <div className="flex-1">{children}</div>
       {showClose && (
         <Button

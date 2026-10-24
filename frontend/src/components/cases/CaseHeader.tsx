@@ -22,7 +22,7 @@ export function CaseHeader({ caseData, onEdit, onDownloadAll, onRequestRelease, 
       <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
         <div className="flex-1">
           <div className="flex items-center flex-wrap gap-3 mb-4">
-            <h1 className="text-2xl font-bold text-gray-900">Case #{caseData.case_number}</h1>
+            <h1 className="page-title">Case #{caseData.case_number}</h1>
             <CaseStatusBadge status={caseData.status} />
             {caseData.tracking_ref && (
               <Badge variant="outline" className="flex items-center gap-1">

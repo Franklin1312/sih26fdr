@@ -147,7 +147,7 @@ export function WizardPage({ isNew = false }: WizardPageProps) {
             <ArrowLeft className="h-4 w-4 mr-1" />
             Back to Dashboard
           </Button>
-          <h1 className="text-2xl font-bold text-gray-900">Create New Deposit Case</h1>
+          <h1 className="page-title">Create New Deposit Case</h1>
           <p className="text-gray-600 mt-1">Start a deposit case for your authorized institution.</p>
         </div>
 

@@ -13,11 +13,11 @@ export const Badge = forwardRef<HTMLSpanElement, BadgeProps>(
       warning: 'badge-warning',
       destructive: 'badge-destructive',
       gray: 'badge-gray',
-      outline: 'border border-gray-300 text-gray-700 bg-transparent',
-      secondary: 'bg-gray-100 text-gray-700',
-      default: 'bg-gray-100 text-gray-700',
+      outline: 'bg-white text-gray-700 ring-gray-300',
+      secondary: 'bg-gray-100 text-gray-700 ring-gray-200',
+      default: 'bg-gray-100 text-gray-700 ring-gray-200',
       danger: 'badge-destructive',
-      info: 'bg-blue-100 text-blue-700',
+      info: 'bg-sky-50 text-sky-700 ring-sky-200',
     }
 
     return (

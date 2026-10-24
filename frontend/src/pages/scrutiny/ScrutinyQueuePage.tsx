@@ -160,7 +160,7 @@ export function ScrutinyQueuePage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Scrutiny Workbench</h1>
+          <h1 className="page-title">Scrutiny Workbench</h1>
           <p className="text-gray-500 mt-1">Review and process submitted cases</p>
         </div>
       </div>
@@ -181,7 +181,7 @@ export function ScrutinyQueuePage() {
           </div>
           <div className="bg-white border border-gray-200 rounded-xl p-4">
             <p className="text-sm text-gray-500">Total Cases</p>
-            <p className="text-2xl font-bold text-gray-900">{stats.total_cases}</p>
+            <p className="page-title">{stats.total_cases}</p>
           </div>
         </div>
       )}

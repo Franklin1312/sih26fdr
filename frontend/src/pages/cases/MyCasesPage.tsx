@@ -67,9 +67,9 @@ export function MyCasesPage() {
       key: 'case_number',
       header: 'Case #',
       sortable: true,
-      width: '120px',
+      width: '170px',
       render: (row) => (
-        <Button variant="ghost" size="sm" className="font-mono text-primary-600 hover:text-primary-800 p-0 h-auto justify-start" onClick={(e) => { e.stopPropagation(); navigate(`/cases/${row.id}`); }}>
+        <Button variant="ghost" size="sm" className="font-mono text-primary-600 hover:text-primary-800 p-0 h-auto justify-start whitespace-nowrap" onClick={(e) => { e.stopPropagation(); navigate(`/cases/${row.id}`); }}>
           #{row.case_number}
         </Button>
       ),
@@ -147,7 +147,7 @@ export function MyCasesPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">My Cases</h1>
+          <h1 className="page-title">My Cases</h1>
           <p className="text-gray-500 mt-1">Manage and track your deposit cases</p>
         </div>
         <Button onClick={() => navigate('/wizard')} className="gap-2">

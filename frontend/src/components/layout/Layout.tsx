@@ -1,16 +1,17 @@
 import { Outlet } from 'react-router-dom'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
-import { cn } from '../../utils/helpers'
 
 export function Layout() {
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-canvas">
       <Sidebar />
-      <div className={cn('lg:ml-64 transition-all duration-300', 'min-h-screen')}>
+      <div className="flex min-h-screen flex-col lg:pl-64">
         <Header />
-        <main className="p-4 sm:p-6 lg:p-8">
-          <Outlet />
+        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+          <div className="mx-auto w-full max-w-7xl animate-fade-up">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>
