@@ -20,7 +20,7 @@ from sqlalchemy import select, and_
 async def check_and_send_alerts(db, rule_engine):
     """Check for due alerts and send them."""
     now = datetime.now(timezone.utc)
-    lead_days = rule_engine.get_alert_lead_days()
+    lead_days = rule_engine.get_alert_advance_days()
     
     print(f"Checking alerts as of {now.isoformat()}")
     print(f"Alert lead days: {lead_days}")

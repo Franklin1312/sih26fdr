@@ -48,14 +48,24 @@ class AuditService:
         data = f"{prev_hash}|{entity_type}|{entity_id}|{action}|{actor_id}|{json.dumps(old_values, sort_keys=True)}|{json.dumps(new_values, sort_keys=True)}|{timestamp}"
         return hashlib.sha256(data.encode()).hexdigest()
 
+    def _format_timestamp(self, dt: datetime) -> str:
+        """Format timestamp consistently for hashing - no microseconds, UTC."""
+        dt = dt.replace(microsecond=0)
+        # Handle both naive and timezone-aware datetimes
+        if dt.tzinfo is not None:
+            return dt.isoformat().replace("+00:00", "Z")
+        else:
+            return dt.isoformat() + "Z"
+
     async def log_event(self, db: AsyncSession, entity_type: str, entity_id: str, action: AuditAction, actor_id: str, old_values: Optional[dict] = None, new_values: Optional[dict] = None) -> AuditLog:
         prev_result = await db.execute(select(AuditLog.hash).order_by(AuditLog.sequence.desc()).limit(1))
         prev_hash = prev_result.scalar() or "0" * 64
         seq_result = await db.execute(select(func.coalesce(func.max(AuditLog.sequence), 0)))
         sequence = (seq_result.scalar() or 0) + 1
-        timestamp = datetime.now(timezone.utc).isoformat()
+        timestamp_dt = datetime.now(timezone.utc).replace(microsecond=0)
+        timestamp = self._format_timestamp(timestamp_dt)
         hash_value = self._compute_hash(prev_hash, entity_type, entity_id, action.value, actor_id, old_values, new_values, timestamp)
-        audit_log = AuditLog(id=str(uuid4()), entity_type=entity_type, entity_id=entity_id, action=action, actor_id=actor_id, old_values=old_values, new_values=new_values, timestamp=datetime.now(timezone.utc), hash=hash_value, prev_hash=prev_hash, sequence=sequence)
+        audit_log = AuditLog(id=str(uuid4()), entity_type=entity_type, entity_id=entity_id, action=action, actor_id=actor_id, old_values=old_values, new_values=new_values, timestamp=timestamp_dt, hash=hash_value, prev_hash=prev_hash, sequence=sequence)
         db.add(audit_log)
         await db.flush()
         return audit_log
@@ -69,7 +79,7 @@ class AuditService:
         tampered = []
         expected_prev = "0" * 64
         for log in logs:
-            timestamp = log.timestamp.isoformat()
+            timestamp = self._format_timestamp(log.timestamp)
             computed_hash = self._compute_hash(log.prev_hash, log.entity_type, log.entity_id, log.action.value, log.actor_id, log.old_values, log.new_values, timestamp)
             prev_ok = log.prev_hash == expected_prev
             hash_ok = log.hash == computed_hash

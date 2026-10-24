@@ -11,6 +11,7 @@ from backend.database import init_db, close_db
 from backend.services.auth import validate_startup_config as validate_auth_config
 from backend.services.audit_service import audit_service
 from backend.services.access_control import access_control
+from backend.services.alert_scheduler import get_alert_scheduler
 from backend.routes import institutions, users, cases, evidence, wizard, clarification, scrutiny, clearance, release
 
 settings = get_settings()
@@ -56,10 +57,17 @@ async def lifespan(app: FastAPI):
     for user in demo_users:
         access_control.register_user(user)
     logger.info("Demo users registered")
-    
+
+    # Start alert scheduler
+    alert_scheduler = get_alert_scheduler()
+    await alert_scheduler.start()
+    logger.info("Alert scheduler started")
+
     yield
-    
+
     logger.info("Shutting down SIH26265...")
+    await alert_scheduler.stop()
+    logger.info("Alert scheduler stopped")
     await close_db()
 
 
