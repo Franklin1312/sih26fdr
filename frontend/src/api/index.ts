@@ -6,3 +6,6 @@ export { scrutinyApi } from './scrutiny'
 export { clearanceApi } from './clearance'
 export { releaseApi } from './release'
 export { institutionsApi } from './institutions'
+export { auditApi } from './audit'
+export { clarificationApi } from './clarification'
+

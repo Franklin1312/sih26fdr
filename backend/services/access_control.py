@@ -1,12 +1,18 @@
 """Role-based access control service - Core permissions."""
 
+from __future__ import annotations
+
 import logging
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Set
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Set
+
+if TYPE_CHECKING:
+    from backend.schemas.institution import UserResponse
 
 from backend.models.enums import UserRole
 
 logger = logging.getLogger("sih26psfdr.access_control")
+
 
 
 # Role permissions mapping
@@ -176,10 +182,6 @@ class AccessControlService:
         """Check if user has all of the permissions."""
         return user.has_all_permissions(permissions)
 
-    def get_user_context(self, user_id: str) -> Optional[UserContext]:
-        """Get registered user context by user ID."""
-        return self._user_contexts.get(user_id)
-
     def list_roles(self) -> List[Dict[str, Any]]:
         """List all roles with descriptions and permissions."""
         return [
@@ -193,14 +195,18 @@ class AccessControlService:
 
     def can_access_case(self, user: UserContext, case_institution_id: str, case_assigned_officer_id: Optional[str], case_status: Optional[str] = None) -> bool:
         """Check if user can access a specific case."""
+        # System Admin has universal administrative and audit oversight access
+        if UserRole.SYSTEM_ADMIN in user.roles:
+            return True
+
         # Institution rep can only access own institution's cases
         if UserRole.INSTITUTION_REP in user.roles:
             return user.institution_id == case_institution_id
         
-        # Scrutiny/clearance officers can access assigned cases
+        # Scrutiny/clearance officers can access assigned cases or cases in review stages
         if UserRole.SCRUTINY_OFFICER in user.roles or UserRole.CLEARANCE_OFFICER in user.roles:
-            # Allow scrutiny officers to access SUBMITTED cases to claim them
-            if UserRole.SCRUTINY_OFFICER in user.roles and case_status == "submitted":
+            # Allow scrutiny officers to access scrutiny & review pipeline cases
+            if UserRole.SCRUTINY_OFFICER in user.roles and case_status in ("submitted", "under_scrutiny", "clarification_pending", "fdr_rpgf_review", "rtgs_review", "sd_refund_review"):
                 return True
             # Allow clearance officers to access CLEARANCE_QUEUE cases
             if UserRole.CLEARANCE_OFFICER in user.roles and case_status == "clearance_queue":

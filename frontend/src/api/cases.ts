@@ -128,4 +128,32 @@ export const casesApi = {
     const response = await apiClient.axios.get('/cases/alerts')
     return response.data
   },
+
+  // Independent bank verification and discrepancy checking
+  async verifyBank(
+    caseId: string,
+    evidenceId: string,
+    payload: {
+      verification_ref: string
+      verified_amount: number
+      verified_maturity_date?: string
+      bank_notes?: string
+    }
+  ): Promise<{
+    success: boolean
+    has_discrepancy: boolean
+    discrepancies: string[]
+    evidence_id: string
+    case_id: string
+    verified_amount: number
+    expected_amount: number
+    message: string
+  }> {
+    const response = await apiClient.axios.post(
+      `/cases/${caseId}/evidence/${evidenceId}/verify-bank`,
+      payload
+    )
+    return response.data
+  },
 }
+

@@ -8,14 +8,15 @@ import { ClarificationThread } from '../../components/cases/ClarificationThread'
 import { DocumentViewer } from '../../components/cases/DocumentViewer';
 import { scrutinyApi } from '../../api/scrutiny';
 import { casesApi } from '../../api/cases';
+import { clarificationApi } from '../../api/clarification';
 import type { ScrutinyCaseDetail } from '../../types/scrutiny';
 import type { DepositEvidenceResponse, CaseStatus } from '../../types/case';
 import { formatDate } from '../../utils/helpers';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { CaseStatusBadge } from '../../components/cases/CaseStatusBadge';
-import { StatusTransitionModal } from '../../components/scrutiny/StatusTransitionModal';
-import { ClarificationRequestModal } from '../../components/scrutiny/ClarificationRequestModal';
+import { StatusTransitionModal, ClarificationRequestModal, BankVerificationPanel } from '../../components/scrutiny';
+import { ShieldCheck } from 'lucide-react';
 
 export function ScrutinyCaseDetailPage() {
   const { caseId } = useParams<{ caseId: string }>();
@@ -23,7 +24,7 @@ export function ScrutinyCaseDetailPage() {
   const [caseData, setCaseData] = useState<ScrutinyCaseDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'documents' | 'timeline' | 'clarifications'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'verification' | 'documents' | 'timeline' | 'clarifications'>('overview');
   const [viewerDoc, setViewerDoc] = useState<DepositEvidenceResponse | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [transitionModalOpen, setTransitionModalOpen] = useState(false);
@@ -89,6 +90,16 @@ export function ScrutinyCaseDetailPage() {
     }
   };
 
+  const handleRespondClarification = async (clarificationId: string, response: string) => {
+    try {
+      await clarificationApi.respond(clarificationId, response);
+      const data = await scrutinyApi.getCaseDetail(caseId!);
+      setCaseData(data);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to respond to clarification');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -127,6 +138,10 @@ export function ScrutinyCaseDetailPage() {
       <Tabs.Root defaultValue={activeTab} value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
         <Tabs.List className="bg-white border border-gray-200 rounded-lg p-1 w-fit">
           <Tabs.Trigger value="overview">Overview</Tabs.Trigger>
+          <Tabs.Trigger value="verification" className="flex items-center gap-1.5">
+            <ShieldCheck className="h-4 w-4 text-indigo-600" />
+            Bank Verification
+          </Tabs.Trigger>
           <Tabs.Trigger value="documents">Documents ({caseData.documents?.length || 0})</Tabs.Trigger>
           <Tabs.Trigger value="timeline">Timeline ({caseData.events?.length || 0})</Tabs.Trigger>
           {canViewClarifications && (
@@ -168,6 +183,22 @@ export function ScrutinyCaseDetailPage() {
           </div>
         </Tabs.Content>
 
+        <Tabs.Content value="verification" className="space-y-6 mt-4">
+          <BankVerificationPanel
+            caseId={caseId!}
+            caseNumber={caseData.case_number}
+            amount={caseData.amount}
+            issuingBank={caseData.issuing_bank}
+            instrumentNumber={caseData.instrument_number}
+            maturityDate={caseData.maturity_date}
+            evidenceList={caseData.documents || []}
+            onVerificationComplete={async () => {
+              const refreshed = await scrutinyApi.getCaseDetail(caseId!)
+              setCaseData(refreshed)
+            }}
+          />
+        </Tabs.Content>
+
         <Tabs.Content value="documents">
           <div className="bg-white border border-gray-200 rounded-xl p-6">
             {caseData.documents?.length ? (
@@ -182,7 +213,14 @@ export function ScrutinyCaseDetailPage() {
 
         {canViewClarifications && (
           <Tabs.Content value="clarifications">
-            <div className="bg-white border border-gray-200 rounded-xl p-6"><ClarificationThread clarifications={caseData.clarifications || []} currentUserRole={currentUserRole} caseId={caseId!} /></div>
+            <div className="bg-white border border-gray-200 rounded-xl p-6">
+              <ClarificationThread
+                clarifications={caseData.clarifications || []}
+                onRespond={handleRespondClarification}
+                currentUserRole={currentUserRole}
+                caseId={caseId!}
+              />
+            </div>
           </Tabs.Content>
         )}
       </Tabs.Root>

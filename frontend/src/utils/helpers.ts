@@ -81,12 +81,15 @@ export function getStatusColor(status: string): string {
     cleared: 'badge-success',
     release_requested: 'badge-primary',
     review: 'badge-primary',
+    fdr_rpgf_review: 'badge-primary',
+    rtgs_review: 'badge-primary',
+    sd_refund_review: 'badge-primary',
     final_decision: 'badge-primary',
     released: 'badge-success',
     rejected: 'badge-destructive',
     closed: 'badge-gray',
   }
-  return colors[status] || 'badge-gray'
+  return colors[status?.toLowerCase()] || 'badge-gray'
 }
 
 export function getStatusLabel(status: string): string {
@@ -99,12 +102,15 @@ export function getStatusLabel(status: string): string {
     cleared: 'Cleared',
     release_requested: 'Release Requested',
     review: 'Under Review',
+    fdr_rpgf_review: 'FDR/RPGF Review',
+    rtgs_review: 'RTGS Review',
+    sd_refund_review: 'SD Refund Review',
     final_decision: 'Final Decision',
     released: 'Released',
     rejected: 'Rejected',
     closed: 'Closed',
   }
-  return labels[status] || status
+  return labels[status?.toLowerCase()] || status
 }
 
 export function getDepositTypeLabel(type: string): string {
@@ -127,14 +133,17 @@ export function getDepositMethodLabel(method: string): string {
 }
 
 export function getRoleLabel(role: string): string {
+  const normalized = (role || '').toLowerCase()
   const labels: Record<string, string> = {
-    INSTITUTION_REP: 'Institution Representative',
-    SCRUTINY_OFFICER: 'Scrutiny Officer',
-    CLEARANCE_OFFICER: 'Clearance Officer',
-    COMPETENT_AUTHORITY: 'Competent Authority',
-    SYSTEM_ADMIN: 'System Admin',
+    institution_rep: 'Institution Representative',
+    scrutiny_officer: 'Scrutiny Officer',
+    clearance_officer: 'Clearance Officer',
+    competent_authority: 'Competent Authority',
+    approval_bureau: 'Approval Bureau',
+    council: 'Council Authority',
+    system_admin: 'System Admin',
   }
-  return labels[role] || role
+  return labels[normalized] || role
 }
 
 export function truncateText(text: string, maxLength: number): string {

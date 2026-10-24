@@ -223,3 +223,131 @@ async def transition_case_status(
     except PermissionError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
 
+
+from pydantic import BaseModel
+from typing import Optional
+from datetime import timezone, datetime
+from backend.models import DepositCase, DepositEvidence, CaseEvent
+from backend.models.enums import AuditAction
+from backend.services.audit_service import audit_service
+
+
+class BankVerificationRequest(BaseModel):
+    verification_ref: str
+    verified_amount: float
+    verified_maturity_date: Optional[str] = None
+    bank_notes: Optional[str] = None
+
+
+class BankVerificationResponse(BaseModel):
+    success: bool
+    has_discrepancy: bool
+    discrepancies: List[str]
+    evidence_id: str
+    case_id: str
+    verified_amount: float
+    expected_amount: float
+    message: str
+
+
+@router.post("/{case_id}/evidence/{evidence_id}/verify-bank", response_model=BankVerificationResponse)
+async def verify_bank_details(
+    case_id: str,
+    evidence_id: str,
+    payload: BankVerificationRequest,
+    db: AsyncSession = Depends(get_db),
+    user: UserContext = Depends(get_user_context),
+):
+    """Mark an evidence instrument as verified with independent bank records and detect discrepancies."""
+    from sqlalchemy import select
+
+    case_res = await db.execute(select(DepositCase).where(DepositCase.id == case_id))
+    case = case_res.scalar_one_or_none()
+    if not case:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Deposit case not found")
+
+    ev_res = await db.execute(select(DepositEvidence).where(DepositEvidence.id == evidence_id, DepositEvidence.case_id == case_id))
+    evidence = ev_res.scalar_one_or_none()
+    if not evidence:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evidence document not found for this case")
+
+    discrepancies: List[str] = []
+
+    # Check amount discrepancy
+    if abs(float(payload.verified_amount) - float(case.amount)) > 0.01:
+        discrepancies.append(
+            f"Amount Mismatch: Institution reported INR {case.amount:,.2f}, but Bank confirmed INR {payload.verified_amount:,.2f}"
+        )
+
+    # Check maturity date discrepancy if provided
+    if payload.verified_maturity_date and case.maturity_date:
+        case_mat_str = case.maturity_date.strftime("%Y-%m-%d") if hasattr(case.maturity_date, "strftime") else str(case.maturity_date)[:10]
+        if str(payload.verified_maturity_date)[:10] != case_mat_str:
+            discrepancies.append(
+                f"Maturity Date Variation: Institution entered {case_mat_str}, but Bank records show {payload.verified_maturity_date[:10]}"
+            )
+
+    has_discrepancy = len(discrepancies) > 0
+
+    # Update evidence validation flags
+    flags = dict(evidence.validation_flags or {})
+    flags["bank_verified"] = True
+    flags["bank_verification_ref"] = payload.verification_ref
+    flags["bank_verified_at"] = datetime.now(timezone.utc).isoformat()
+    flags["bank_verified_amount"] = payload.verified_amount
+    flags["bank_verified_by"] = user.user_id
+    flags["has_discrepancy"] = has_discrepancy
+    flags["discrepancies"] = discrepancies
+    if payload.bank_notes:
+        flags["bank_notes"] = payload.bank_notes
+    evidence.validation_flags = flags
+
+    # Record CaseEvent
+    ev_record = CaseEvent(
+        id=str(uuid4()),
+        case_id=case_id,
+        event_type="bank_verification",
+        actor_id=user.user_id,
+        details={
+            "verification_ref": payload.verification_ref,
+            "verified_amount": payload.verified_amount,
+            "has_discrepancy": has_discrepancy,
+            "discrepancies": discrepancies,
+            "bank_notes": payload.bank_notes,
+            "verified_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+    db.add(ev_record)
+
+    # Audit log
+    await audit_service.log_event(
+        db=db,
+        entity_type="deposit_evidence",
+        entity_id=evidence.id,
+        action=AuditAction.UPDATE,
+        actor_id=user.user_id,
+        old_values={"bank_verified": False},
+        new_values={
+            "bank_verified": True,
+            "has_discrepancy": has_discrepancy,
+            "discrepancies": discrepancies,
+            "case_id": case_id,
+        },
+    )
+
+    await db.commit()
+
+    return BankVerificationResponse(
+        success=True,
+        has_discrepancy=has_discrepancy,
+        discrepancies=discrepancies,
+        evidence_id=evidence_id,
+        case_id=case_id,
+        verified_amount=payload.verified_amount,
+        expected_amount=float(case.amount),
+        message="Independent bank confirmation recorded successfully"
+        if not has_discrepancy
+        else f"Bank record logged with {len(discrepancies)} discrepancy warning(s)",
+    )
+
+

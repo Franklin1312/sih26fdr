@@ -13,7 +13,10 @@ function initials(name?: string) {
 }
 
 const ROLES_LIST = [
-  { role: 'institution_rep', title: 'Institution Rep', email: 'inst_rep_1@demo.example', icon: Building2, desc: 'Apex Institute of Tech' },
+  { role: 'institution_rep', title: 'Rajesh Sharma (Inst Rep)', email: 'inst_rep_1@demo.example', icon: Building2, desc: 'Apex Institute of Technology' },
+  { role: 'institution_rep', title: 'Priya Nair (Inst Rep)', email: 'inst_rep_2@demo.example', icon: Building2, desc: 'National Medical College' },
+  { role: 'institution_rep', title: 'Suresh Kumar (Inst Rep)', email: 'inst_rep_3@demo.example', icon: Building2, desc: 'City Polytechnic Institute' },
+  { role: 'institution_rep', title: 'Anita Das (Inst Rep)', email: 'inst_rep_4@demo.example', icon: Building2, desc: 'Eastern Management School' },
   { role: 'scrutiny_officer', title: 'Scrutiny Officer', email: 'scrutiny_1@demo.example', icon: Search, desc: 'Review & Deficiencies' },
   { role: 'clearance_officer', title: 'Clearance Officer', email: 'clearance_1@demo.example', icon: Scale, desc: 'PGRC, Vigilance & Finance' },
   { role: 'competent_authority', title: 'Competent Authority', email: 'authority_1@demo.example', icon: Award, desc: 'Approval Bureau NOC / Council' },

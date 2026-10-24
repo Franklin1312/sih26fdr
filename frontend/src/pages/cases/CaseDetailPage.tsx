@@ -12,9 +12,11 @@ import {
   LifecycleTrackingCard,
   RenewFDRModal,
   RenewalLineageCard,
+  AuditTimeline,
 } from '../../components/cases';
 import { casesApi } from '../../api/cases';
 import { releaseApi } from '../../api/release';
+import { clarificationApi } from '../../api/clarification';
 import { useAuth } from '../../auth/useAuth';
 import { toast } from 'sonner';
 import type { DepositCaseDetail, DepositEvidenceResponse } from '../../types/case';
@@ -120,6 +122,20 @@ export function CaseDetailPage() {
       toast.error(cause instanceof Error ? cause.message : 'Could not submit the release request');
     }
   };
+
+  const handleRespondClarification = async (clarificationId: string, response: string) => {
+    try {
+      await clarificationApi.respond(clarificationId, response);
+      toast.success('Clarification response submitted to scrutiny officer.');
+      if (caseData) {
+        const refreshed = await casesApi.getById(caseData.id);
+        setCaseData(refreshed);
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to submit clarification response');
+    }
+  };
+
 
   const handleChecklistUpload = async (documentType: string, file?: File) => {
     if (!file || !caseData) return;
@@ -397,9 +413,31 @@ export function CaseDetailPage() {
           </div>
         </Tabs.Content>
 
-        <Tabs.Content value="timeline">
-          <div className="bg-white border border-gray-200 rounded-xl p-6">
+        <Tabs.Content value="timeline" className="space-y-6 mt-4">
+          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-gray-200">
+              <div>
+                <h3 className="font-semibold text-gray-900 text-base">Lifecycle Event Timeline</h3>
+                <p className="text-xs text-gray-500">Business transitions, reviews, and case milestones</p>
+              </div>
+              <Badge variant="outline" className="text-xs">
+                {caseData.events?.length || 0} Milestone Events
+              </Badge>
+            </div>
             <Timeline events={caseData.events || []} />
+          </div>
+
+          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm">
+            <div className="flex items-center justify-between pb-3 mb-4 border-b border-gray-200">
+              <div>
+                <h3 className="font-semibold text-gray-900 text-base">Cryptographic Audit Trail (SHA-256)</h3>
+                <p className="text-xs text-gray-500">Tamper-evident sequential hash chain verifying compliance</p>
+              </div>
+              <Badge variant="success" className="bg-emerald-50 text-emerald-700 border-emerald-300 text-xs">
+                Immutable Ledger
+              </Badge>
+            </div>
+            <AuditTimeline caseId={caseData.id} />
           </div>
         </Tabs.Content>
 
@@ -408,7 +446,8 @@ export function CaseDetailPage() {
             <div className="bg-white border border-gray-200 rounded-xl p-6">
               <ClarificationThread
                 clarifications={caseData.clarifications || []}
-                currentUserRole={currentUserRole}
+                onRespond={handleRespondClarification}
+                currentUserRole={currentUserRole as import('../../types/auth').UserRole}
                 caseId={id!}
               />
             </div>
