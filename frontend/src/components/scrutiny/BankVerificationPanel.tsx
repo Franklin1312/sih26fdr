@@ -3,7 +3,6 @@ import {
   CheckCircle2,
   AlertTriangle,
   RefreshCw,
-  Building2,
   FileCheck2,
 } from 'lucide-react'
 import { casesApi } from '../../api/cases'
