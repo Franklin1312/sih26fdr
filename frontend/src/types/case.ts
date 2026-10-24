@@ -67,6 +67,17 @@ export interface DepositCaseUpdate {
   regulatory_context?: Record<string, boolean>
 }
 
+export interface DepositCaseRenewalCreate {
+  instrument_number: string
+  instrument_date?: string
+  issuing_bank: string
+  amount: number
+  currency?: string
+  maturity_date: string
+  term_end_date?: string | null
+  renewal_notes?: string
+}
+
 export interface DepositCaseStatusUpdate {
   new_status: CaseStatus
   reason?: string
@@ -92,7 +103,20 @@ export interface DepositCaseResponse {
   submitted_at: string | null
   assigned_officer_id: string | null
   term_end_date: string | null
+  aicte_clause_ref?: string | null
+  parent_case_id?: string | null
   regulatory_context: Record<string, boolean>
+}
+
+export interface LifecycleDateResponse {
+  id: string
+  case_id: string
+  date_type: 'fdr_maturity' | 'aicte_term_end' | 'admin_deadline' | 'renewal_due'
+  date_value: string
+  alert_lead_days: number
+  description?: string
+  is_active: boolean
+  created_at: string
 }
 
 export interface DepositCaseDetail extends DepositCaseResponse {
@@ -102,6 +126,9 @@ export interface DepositCaseDetail extends DepositCaseResponse {
   events: CaseEventResponse[]
   clarifications: ClarificationRequestResponse[]
   clearances: ClearanceTaskResponse[]
+  lifecycle_dates?: LifecycleDateResponse[]
+  parent_case?: DepositCaseResponse | null
+  child_cases?: DepositCaseResponse[]
   dashboard_stats?: DashboardStats
 }
 
@@ -209,4 +236,18 @@ export interface ClearanceTaskResponse {
   institution_name?: string
   deposit_type?: DepositType
   deposit_method?: DepositMethod
+}
+
+export interface SystemAlertResponse {
+  id: string
+  case_id: string
+  case_number: string
+  institution_name: string
+  alert_type: string
+  severity: 'critical' | 'warning' | 'info'
+  title: string
+  message: string
+  due_date: string | null
+  days_left: number | null
+  created_at: string
 }

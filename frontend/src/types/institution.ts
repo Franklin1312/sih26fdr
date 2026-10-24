@@ -6,6 +6,7 @@ export interface InstitutionResponse {
   code: string
   contact_email: string
   address: string
+  institution_type?: string
   is_active: boolean
   created_at: string
   updated_at: string

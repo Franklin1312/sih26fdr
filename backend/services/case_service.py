@@ -2,7 +2,7 @@
 
 import logging
 from datetime import datetime, timezone, timedelta
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict, Any
 from uuid import uuid4
 
 from sqlalchemy import select, func, and_, or_, desc
@@ -36,6 +36,7 @@ from backend.models.enums import (
 )
 from backend.schemas.deposit_case import (
     DepositCaseCreate,
+    DepositCaseRenewalCreate,
     DepositCaseUpdate,
     DepositCaseStatusUpdate,
     DepositCaseListParams,
@@ -81,6 +82,7 @@ class CaseService:
         case = DepositCase(
             tracking_ref=tracking_ref,
             institution_id=case_data.institution_id,
+            parent_case_id=case_data.parent_case_id,
             deposit_type=case_data.deposit_type,
             deposit_method=case_data.deposit_method,
             amount=case_data.amount,
@@ -235,6 +237,8 @@ class CaseService:
             selectinload(DepositCase.release_requests).selectinload(ReleaseRequest.created_by_user),
             selectinload(DepositCase.release_requests).selectinload(ReleaseRequest.decided_by_user),
             selectinload(DepositCase.lifecycle_dates),
+            selectinload(DepositCase.parent_case),
+            selectinload(DepositCase.child_cases),
         ).where(DepositCase.id == case_id)
         
         result = await self.db.execute(query)
@@ -455,6 +459,114 @@ class CaseService:
             upcoming_maturity_count=upcoming_maturities,
         )
 
+    async def get_active_alerts(self, user: UserContext) -> List[Dict[str, Any]]:
+        """Get live, prioritized system notifications and regulatory alerts for the user."""
+        now = datetime.now(timezone.utc)
+        query = select(DepositCase).options(
+            selectinload(DepositCase.institution),
+            selectinload(DepositCase.clarifications),
+            selectinload(DepositCase.clearances),
+        )
+
+        if UserRole.INSTITUTION_REP in user.roles:
+            query = query.where(DepositCase.institution_id == user.institution_id)
+        elif UserRole.SCRUTINY_OFFICER in user.roles or UserRole.CLEARANCE_OFFICER in user.roles:
+            query = query.where(DepositCase.assigned_officer_id == user.user_id)
+
+        cases_res = await self.db.execute(query)
+        cases = cases_res.scalars().all()
+
+        alerts = []
+        for case in cases:
+            inst_name = case.institution.name if case.institution else "Apex Institute"
+
+            # 1. Check Maturity Date
+            if case.maturity_date:
+                mat_date = case.maturity_date if case.maturity_date.tzinfo else case.maturity_date.replace(tzinfo=timezone.utc)
+                diff = (mat_date - now).total_seconds() / 86400.0
+                days = int(diff)
+
+                if days < 0:
+                    alerts.append({
+                        "id": f"mat-overdue-{case.id}",
+                        "case_id": case.id,
+                        "case_number": case.tracking_ref,
+                        "institution_name": inst_name,
+                        "alert_type": "maturity_overdue",
+                        "severity": "critical",
+                        "title": f"FDR #{case.instrument_number} Expired",
+                        "message": f"Matured {abs(days)}d ago. Action required: rollover renewal or release clearance.",
+                        "due_date": mat_date.isoformat(),
+                        "days_left": days,
+                        "created_at": now.isoformat(),
+                    })
+                elif days <= 30:
+                    alerts.append({
+                        "id": f"mat-soon-{case.id}",
+                        "case_id": case.id,
+                        "case_number": case.tracking_ref,
+                        "institution_name": inst_name,
+                        "alert_type": "maturity_approaching",
+                        "severity": "warning",
+                        "title": f"Maturity in {days} Days",
+                        "message": f"FDR #{case.instrument_number} ({case.issuing_bank}) reaches term maturity on {mat_date.strftime('%d-%b-%Y')}.",
+                        "due_date": mat_date.isoformat(),
+                        "days_left": days,
+                        "created_at": now.isoformat(),
+                    })
+                elif days <= 60:
+                    alerts.append({
+                        "id": f"ren-window-{case.id}",
+                        "case_id": case.id,
+                        "case_number": case.tracking_ref,
+                        "institution_name": inst_name,
+                        "alert_type": "renewal_window",
+                        "severity": "info",
+                        "title": "Renewal Window Active",
+                        "message": f"FDR #{case.instrument_number} is eligible for rollover renewal under AICTE APH.",
+                        "due_date": mat_date.isoformat(),
+                        "days_left": days,
+                        "created_at": now.isoformat(),
+                    })
+
+            # 2. Check Pending Clarifications
+            if UserRole.INSTITUTION_REP in user.roles:
+                pending_clrs = [c for c in case.clarifications if c.status == ClarificationStatus.PENDING]
+                if pending_clrs:
+                    alerts.append({
+                        "id": f"clr-pending-{case.id}",
+                        "case_id": case.id,
+                        "case_number": case.tracking_ref,
+                        "institution_name": inst_name,
+                        "alert_type": "clarification_pending",
+                        "severity": "warning",
+                        "title": f"Clarification Notice: {case.tracking_ref}",
+                        "message": f"Scrutiny officer requested additional documentation for {case.deposit_type.value}.",
+                        "due_date": None,
+                        "days_left": None,
+                        "created_at": now.isoformat(),
+                    })
+
+            # 3. Check Pending Clearances
+            if case.status == CaseStatus.CLEARANCE_QUEUE:
+                alerts.append({
+                    "id": f"clearance-queue-{case.id}",
+                    "case_id": case.id,
+                    "case_number": case.tracking_ref,
+                    "institution_name": inst_name,
+                    "alert_type": "clearance_queue",
+                    "severity": "info",
+                    "title": f"Multi-Bureau Clearance Active: {case.tracking_ref}",
+                    "message": "PGRC, Vigilance Cell, and Approval Bureau clearances are underway.",
+                    "due_date": None,
+                    "days_left": None,
+                    "created_at": now.isoformat(),
+                })
+
+        severity_order: dict[str, int] = {"critical": 0, "warning": 1, "info": 2}
+        alerts.sort(key=lambda a: severity_order.get(str(a.get("severity", "")), 3))
+        return alerts
+
     async def _generate_tracking_ref(self, deposit_type: DepositType) -> str:
         """Generate a unique tracking reference."""
         prefix_map = {
@@ -627,7 +739,7 @@ class CaseService:
 
         count_stmt = select(func.count()).select_from(stmt.subquery())
         total_result = await self.db.execute(count_stmt)
-        total = total_result.scalar()
+        total = total_result.scalar() or 0
 
         stmt = stmt.offset((params.page - 1) * params.page_size).limit(params.page_size)
         result = await self.db.execute(stmt)
@@ -661,6 +773,8 @@ class CaseService:
             raise ValueError("Clarification already responded")
 
         case = await self.db.get(DepositCase, clarification.case_id)
+        if not case:
+            raise ValueError("Associated deposit case not found")
         if user.institution_id != case.institution_id and not access_control.require_permission(user, "clarification:respond"):
             raise PermissionError("Cannot respond to clarification for another institution")
 
@@ -727,3 +841,101 @@ class CaseService:
         )
 
         return clarification
+
+    async def create_renewal_case(
+        self, parent_case_id: str, renewal_data: DepositCaseRenewalCreate, user: UserContext
+    ) -> DepositCase:
+        """Create a renewal or replacement deposit case linked to a parent instrument."""
+        if not user.has_permission("case:create"):
+            raise PermissionError("Cannot create deposit cases")
+
+        parent_case = await self.db.get(DepositCase, parent_case_id)
+        if not parent_case:
+            raise ValueError("Original deposit case not found")
+
+        if not access_control.can_access_case(
+            user, parent_case.institution_id, parent_case.assigned_officer_id, parent_case.status.value
+        ):
+            raise PermissionError("Cannot access original case to create renewal")
+
+        if UserRole.INSTITUTION_REP in user.roles and user.institution_id != parent_case.institution_id:
+            raise PermissionError("Cannot create a renewal for another institution")
+
+        # Generate unique renewal tracking ref
+        base_ref = f"{parent_case.tracking_ref}-REN"
+        check_query = select(DepositCase.id).where(DepositCase.tracking_ref == base_ref)
+        res = await self.db.execute(check_query)
+        if res.scalar_one_or_none():
+            child_count_q = select(func.count(DepositCase.id)).where(DepositCase.parent_case_id == parent_case.id)
+            child_count = (await self.db.execute(child_count_q)).scalar() or 1
+            tracking_ref = f"{parent_case.tracking_ref}-REN{child_count + 1}"
+        else:
+            tracking_ref = base_ref
+
+        child_case = DepositCase(
+            tracking_ref=tracking_ref,
+            institution_id=parent_case.institution_id,
+            parent_case_id=parent_case.id,
+            deposit_type=parent_case.deposit_type,
+            deposit_method=parent_case.deposit_method,
+            amount=renewal_data.amount,
+            currency=renewal_data.currency,
+            instrument_number=renewal_data.instrument_number,
+            instrument_date=renewal_data.instrument_date or datetime.now(timezone.utc),
+            issuing_bank=renewal_data.issuing_bank,
+            maturity_date=renewal_data.maturity_date,
+            term_end_date=renewal_data.term_end_date or parent_case.term_end_date,
+            aicte_clause_ref=parent_case.aicte_clause_ref,
+            regulatory_context=parent_case.regulatory_context,
+            status=CaseStatus.DRAFT,
+            is_demo=parent_case.is_demo,
+        )
+
+        self.db.add(child_case)
+        await self.db.flush()
+
+        await self._create_lifecycle_dates(child_case)
+
+        # Audit and timeline events on both parent and child
+        await self._log_case_event(
+            parent_case.id,
+            "fdr_renewal_initiated",
+            user.user_id,
+            parent_case.status,
+            parent_case.status,
+            {
+                "renewal_case_id": child_case.id,
+                "renewal_tracking_ref": child_case.tracking_ref,
+                "new_instrument_number": child_case.instrument_number,
+                "notes": renewal_data.renewal_notes,
+            },
+        )
+
+        await self._log_case_event(
+            child_case.id,
+            "renewal_case_created",
+            user.user_id,
+            None,
+            CaseStatus.DRAFT,
+            {
+                "parent_case_id": parent_case.id,
+                "parent_tracking_ref": parent_case.tracking_ref,
+                "previous_instrument_number": parent_case.instrument_number,
+            },
+        )
+
+        await audit_service.log_event(
+            db=self.db,
+            entity_type="deposit_case",
+            entity_id=child_case.id,
+            action=AuditAction.CREATE,
+            actor_id=user.user_id,
+            new_values={
+                "tracking_ref": child_case.tracking_ref,
+                "parent_case_id": parent_case.id,
+                "status": CaseStatus.DRAFT.value,
+            },
+        )
+
+        return child_case
+

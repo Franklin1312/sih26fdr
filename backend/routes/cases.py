@@ -13,12 +13,14 @@ from backend.services.access_control import access_control, UserContext
 from backend.services.case_service import CaseService
 from backend.schemas.deposit_case import (
     DepositCaseCreate,
+    DepositCaseRenewalCreate,
     DepositCaseUpdate,
     DepositCaseStatusUpdate,
     DepositCaseResponse,
     DepositCaseDetail,
     DepositCaseListParams,
     DepositCaseDashboardStats,
+    SystemAlertResponse,
 )
 from backend.schemas.common import PaginationParams, PaginatedResponse
 from backend.schemas.institution import CurrentUserResponse
@@ -71,6 +73,23 @@ async def create_case(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
 
 
+@router.post("/{case_id}/renew", response_model=DepositCaseResponse, status_code=status.HTTP_201_CREATED)
+async def renew_case(
+    case_id: str,
+    renewal_data: DepositCaseRenewalCreate,
+    case_service: CaseService = Depends(get_case_service),
+    user: UserContext = Depends(get_user_context),
+):
+    """Create a renewal or replacement case linked to an existing instrument."""
+    try:
+        case = await case_service.create_renewal_case(case_id, renewal_data, user)
+        return case
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
+
+
 @router.get("", response_model=PaginatedResponse[DepositCaseResponse])
 async def list_cases(
     params: DepositCaseListParams = Depends(),
@@ -91,6 +110,32 @@ async def list_cases(
 
 
 
+
+
+@router.get("/alerts", response_model=List[SystemAlertResponse])
+async def get_system_alerts(
+    case_service: CaseService = Depends(get_case_service),
+    user: UserContext = Depends(get_user_context),
+):
+    """Get active system alerts and notifications."""
+    try:
+        alerts = await case_service.get_active_alerts(user)
+        return [SystemAlertResponse(**a) for a in alerts]
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
+
+
+@router.get("/dashboard/stats", response_model=DepositCaseDashboardStats)
+async def get_dashboard_stats(
+    case_service: CaseService = Depends(get_case_service),
+    user: UserContext = Depends(get_user_context),
+):
+    """Get dashboard statistics for deposit cases."""
+    try:
+        stats = await case_service.get_dashboard_stats(user)
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))
 
 
 @router.get("/{case_id}", response_model=DepositCaseDetail)
@@ -178,15 +223,3 @@ async def transition_case_status(
     except PermissionError as e:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
 
-
-@router.get("/dashboard/stats", response_model=DepositCaseDashboardStats)
-async def get_dashboard_stats(
-    case_service: CaseService = Depends(get_case_service),
-    user: UserContext = Depends(get_user_context),
-):
-    """Get dashboard statistics for deposit cases."""
-    try:
-        stats = await case_service.get_dashboard_stats(user)
-        return stats
-    except Exception as e:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

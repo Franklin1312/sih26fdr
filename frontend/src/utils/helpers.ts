@@ -22,7 +22,10 @@ export function formatFileSize(bytes: number): string {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
 }
 
-export function formatDate(dateString: string | null | undefined, format: 'short' | 'full' = 'short'): string {
+export function formatDate(
+  dateString: string | null | undefined,
+  format: 'short' | 'medium' | 'full' = 'short'
+): string {
   if (!dateString) return '-'
   try {
     const date = new Date(dateString)
@@ -33,6 +36,13 @@ export function formatDate(dateString: string | null | undefined, format: 'short
         year: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
+      })
+    }
+    if (format === 'medium') {
+      return date.toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
       })
     }
     return date.toLocaleDateString('en-IN', {

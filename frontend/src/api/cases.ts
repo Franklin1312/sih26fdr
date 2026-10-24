@@ -1,6 +1,7 @@
 import { apiClient } from './core'
 import type {
   DepositCaseCreate,
+  DepositCaseRenewalCreate,
   DepositCaseUpdate,
   DepositCaseResponse,
   DepositCaseDetail,
@@ -11,6 +12,7 @@ import type {
   PaginationParams,
   PaginatedResponse,
   DashboardStats,
+  SystemAlertResponse,
 } from '../types/case'
 
 export const casesApi = {
@@ -43,6 +45,12 @@ export const casesApi = {
   // Create new case
   async create(data: DepositCaseCreate): Promise<DepositCaseResponse> {
     const response = await apiClient.axios.post('/cases', data)
+    return response.data
+  },
+
+  // Renew / Replace existing deposit case
+  async renew(id: string, data: DepositCaseRenewalCreate): Promise<DepositCaseResponse> {
+    const response = await apiClient.axios.post(`/cases/${id}/renew`, data)
     return response.data
   },
 
@@ -113,5 +121,11 @@ export const casesApi = {
   // Delete document
   async deleteDocument(documentId: string): Promise<void> {
     await apiClient.axios.delete(`/cases/evidence/${documentId}`)
+  },
+
+  // Get active system notifications / alerts
+  async getAlerts(): Promise<SystemAlertResponse[]> {
+    const response = await apiClient.axios.get('/cases/alerts')
+    return response.data
   },
 }

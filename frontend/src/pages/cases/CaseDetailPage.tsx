@@ -1,21 +1,36 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Tabs } from '../../components/ui/Tabs';
-import { CaseHeader } from '../../components/cases/CaseHeader';
-import { DocumentCard } from '../../components/cases/DocumentCard';
-import { Timeline } from '../../components/cases/Timeline';
-import { ClarificationThread } from '../../components/cases/ClarificationThread';
-import { ClearanceTasks } from '../../components/cases/ClearanceTasks';
-import { DocumentViewer } from '../../components/cases/DocumentViewer';
+import {
+  CaseHeader,
+  DocumentCard,
+  Timeline,
+  ClarificationThread,
+  ClearanceTasks,
+  DocumentViewer,
+  BankVerificationCard,
+  LifecycleTrackingCard,
+  RenewFDRModal,
+  RenewalLineageCard,
+} from '../../components/cases';
 import { casesApi } from '../../api/cases';
 import { releaseApi } from '../../api/release';
 import { useAuth } from '../../auth/useAuth';
 import { toast } from 'sonner';
 import type { DepositCaseDetail, DepositEvidenceResponse } from '../../types/case';
 import type { ReleaseChecklistResponse } from '../../types/release';
-import { formatDate } from '../../utils/helpers';
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { formatDate, formatCurrency } from '../../utils/helpers';
+import {
+  AlertCircle,
+  Loader2,
+  Building2,
+  Calendar,
+  ShieldCheck,
+  FileText,
+  GitBranch,
+} from 'lucide-react';
 import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
 
 export function CaseDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -23,9 +38,12 @@ export function CaseDetailPage() {
   const [caseData, setCaseData] = useState<DepositCaseDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'overview' | 'documents' | 'timeline' | 'clarifications' | 'clearances'>('overview');
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'verification' | 'lifecycle' | 'documents' | 'timeline' | 'clarifications' | 'clearances'
+  >('overview');
   const [viewerDoc, setViewerDoc] = useState<DepositEvidenceResponse | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
+  const [renewModalOpen, setRenewModalOpen] = useState(false);
   const [releaseChecklist, setReleaseChecklist] = useState<ReleaseChecklistResponse | null>(null);
   const [uploadingType, setUploadingType] = useState<string | null>(null);
 
@@ -41,8 +59,17 @@ export function CaseDetailPage() {
       try {
         const data = await casesApi.getById(id);
         setCaseData(data);
-        if (data.status.startsWith('fdr_rpgf_review') || data.status.startsWith('rtgs_review') || data.status.startsWith('sd_refund_review') || data.status === 'release_requested') {
-          try { setReleaseChecklist(await releaseApi.getChecklist(id)); } catch { setReleaseChecklist(null); }
+        if (
+          data.status.startsWith('fdr_rpgf_review') ||
+          data.status.startsWith('rtgs_review') ||
+          data.status.startsWith('sd_refund_review') ||
+          data.status === 'release_requested'
+        ) {
+          try {
+            setReleaseChecklist(await releaseApi.getChecklist(id));
+          } catch {
+            setReleaseChecklist(null);
+          }
         } else {
           setReleaseChecklist(null);
         }
@@ -137,12 +164,39 @@ export function CaseDetailPage() {
   const canViewClarifications = caseData.clarifications && caseData.clarifications.length > 0;
   const canViewClearances = caseData.clearances && caseData.clearances.length > 0;
 
+  // Regulatory context booleans
+  const regContext = caseData.regulatory_context || {};
+  const activeRegKeys = Object.entries(regContext).filter(([, val]) => val === true);
+
   return (
     <div className="space-y-6">
-      <CaseHeader caseData={caseData} onEdit={handleEdit} onRequestRelease={handleRequestRelease} currentUserRole={currentUserRole} />
-      <Tabs.Root defaultValue={activeTab} value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
-        <Tabs.List className="bg-white border border-gray-200 rounded-lg p-1 w-fit">
+      <CaseHeader
+        caseData={caseData}
+        onEdit={handleEdit}
+        onRenew={() => setRenewModalOpen(true)}
+        onRequestRelease={handleRequestRelease}
+        currentUserRole={currentUserRole}
+      />
+
+      <Tabs.Root
+        defaultValue={activeTab}
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as typeof activeTab)}
+      >
+        <Tabs.List className="bg-white border border-gray-200 rounded-lg p-1 w-fit flex flex-wrap gap-1">
           <Tabs.Trigger value="overview">Overview</Tabs.Trigger>
+          <Tabs.Trigger value="lineage" className="gap-1.5 flex items-center">
+            <GitBranch className="h-4 w-4 text-indigo-600" />
+            Renewal Lineage
+          </Tabs.Trigger>
+          <Tabs.Trigger value="verification" className="gap-1.5 flex items-center">
+            <ShieldCheck className="h-4 w-4 text-emerald-600" />
+            Bank Verification
+          </Tabs.Trigger>
+          <Tabs.Trigger value="lifecycle" className="gap-1.5 flex items-center">
+            <Calendar className="h-4 w-4 text-blue-600" />
+            Lifecycle & Alerts
+          </Tabs.Trigger>
           <Tabs.Trigger value="documents">Documents ({caseData.documents?.length || 0})</Tabs.Trigger>
           <Tabs.Trigger value="timeline">Timeline ({caseData.events?.length || 0})</Tabs.Trigger>
           {canViewClarifications && (
@@ -153,59 +207,159 @@ export function CaseDetailPage() {
           )}
         </Tabs.List>
 
-        <Tabs.Content value="overview">
-          <div className="bg-white border border-gray-200 rounded-xl p-6 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-gray-200">
+        {/* 1. OVERVIEW TAB */}
+        <Tabs.Content value="overview" className="space-y-6 mt-4">
+          {/* Financial Instrument Details */}
+          <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-6">
+            <div className="flex items-center justify-between pb-3 border-b border-gray-200">
+              <div className="flex items-center gap-2">
+                <div className="p-2 rounded-lg bg-primary-50 text-primary-700">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 text-base">FDR & Financial Instrument Specifics</h3>
+                  <p className="text-xs text-gray-500">Record maintained for AICTE Regulation Bureau compliance</p>
+                </div>
+              </div>
+              <Badge variant="outline" className="font-mono text-xs">
+                Ref: {caseData.tracking_ref || caseData.case_number}
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 text-sm">
               <div>
-                <p className="text-sm text-gray-500">Deposit Type</p>
-                <p className="font-medium text-gray-900 capitalize">{caseData.deposit_type?.replace(/_/g, ' ')}</p>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Instrument Number</p>
+                <p className="font-semibold font-mono text-base text-gray-900 mt-1">{caseData.instrument_number || '—'}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Deposit Method</p>
-                <p className="font-medium text-gray-900 capitalize">{caseData.deposit_method?.replace(/_/g, ' ')}</p>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Issuing Bank</p>
+                <p className="font-semibold text-base text-gray-900 mt-1">{caseData.issuing_bank || '—'}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Amount</p>
-                <p className="font-medium text-xl text-primary-600">{caseData.amount?.toLocaleString() || '0'}</p>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Principal Amount</p>
+                <p className="font-semibold text-xl text-primary-600 mt-1">{formatCurrency(caseData.amount)}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Maturity Date</p>
+                <p className="font-semibold text-base text-gray-900 mt-1">
+                  {caseData.maturity_date ? formatDate(caseData.maturity_date, 'medium') : 'N/A (Perpetual / RTGS)'}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Deposit Type</p>
+                <p className="font-medium text-gray-900 capitalize mt-1">{caseData.deposit_type?.replace(/_/g, ' ')}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Deposit Method</p>
+                <p className="font-medium text-gray-900 capitalize mt-1">{caseData.deposit_method?.replace(/_/g, ' ')}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">AICTE Clause Ref</p>
+                <p className="font-medium text-gray-900 mt-1">{caseData.aicte_clause_ref || 'Clause 6.46 (Standard Approval)'}</p>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">AICTE Term End</p>
+                <p className="font-medium text-gray-900 mt-1">
+                  {caseData.term_end_date ? formatDate(caseData.term_end_date, 'medium') : '5-Year Cycle'}
+                </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-gray-200">
-              <div>
-                <p className="text-sm text-gray-500">Created</p>
-                <p className="font-medium text-gray-900">{formatDate(caseData.created_at, 'full')}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Updated</p>
-                <p className="font-medium text-gray-900">{formatDate(caseData.updated_at, 'full')}</p>
-              </div>
-              {caseData.submitted_at && (
-                <div>
-                  <p className="text-sm text-gray-500">Submitted</p>
-                  <p className="font-medium text-gray-900">{formatDate(caseData.submitted_at, 'full')}</p>
+            {/* AICTE Regulatory Context / Clause 6.46 Facts */}
+            <div className="pt-4 border-t border-gray-100">
+              <p className="text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">
+                Clause 6.46 Circumstances & Regulatory Gates
+              </p>
+              {activeRegKeys.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {activeRegKeys.map(([k]) => (
+                    <Badge key={k} variant="secondary" className="bg-amber-50 text-amber-800 border-amber-200 text-xs">
+                      {k.replace(/_/g, ' ')}
+                    </Badge>
+                  ))}
                 </div>
+              ) : (
+                <p className="text-xs text-gray-500">
+                  Standard regulatory path — No exceptional Clause 6.46 circumstances (progressive closure, embezzlement, etc.) flagged.
+                </p>
               )}
             </div>
+          </div>
 
-            {caseData.institution && (
-              <div className="pt-4 border-t border-gray-200">
-                <h3 className="font-semibold text-gray-900 mb-3">Institution Details</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <p className="text-sm text-gray-500">Name</p>
-                    <p className="font-medium text-gray-900">{caseData.institution.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Code</p>
-                    <p className="font-medium text-gray-900">{caseData.institution.code}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Type</p>
-                  </div>
+          {/* Instrument Renewal & Replacement Lineage */}
+          <RenewalLineageCard
+            caseData={caseData}
+            onOpenRenewModal={() => setRenewModalOpen(true)}
+            currentUserRole={currentUserRole}
+          />
+
+          {/* Quick Bank Verification Summary Card */}
+          <BankVerificationCard caseData={caseData} currentUserRole={currentUserRole} />
+
+          {/* Quick Lifecycle Milestones Card */}
+          <LifecycleTrackingCard caseData={caseData} />
+
+          {/* Institution Particulars */}
+          {caseData.institution && (
+            <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
+              <div className="flex items-center gap-2.5 pb-3 border-b border-gray-200">
+                <div className="p-2 rounded-lg bg-slate-100 text-slate-700">
+                  <Building2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900 text-base">Institution Particulars</h3>
+                  <p className="text-xs text-gray-500">Official AICTE institution profile and registry details</p>
                 </div>
               </div>
-            )}
-          </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Institution Name</p>
+                  <p className="font-semibold text-gray-900 mt-1">{caseData.institution.name}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">AICTE Institution Code</p>
+                  <p className="font-semibold font-mono text-gray-900 mt-1">{caseData.institution.code}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Institution Type</p>
+                  <p className="font-medium text-gray-900 capitalize mt-1">
+                    {caseData.institution.institution_type?.replace(/_/g, ' ') || 'Technical / Engineering'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Contact Email</p>
+                  <p className="font-medium text-gray-900 mt-1">{caseData.institution.contact_email || '—'}</p>
+                </div>
+                {caseData.institution.address && (
+                  <div className="md:col-span-2 lg:col-span-4 pt-2">
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Registered Campus Address</p>
+                    <p className="text-gray-700 mt-0.5">{caseData.institution.address}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </Tabs.Content>
+
+        {/* 2. DEDICATED LINEAGE & RENEWAL TAB */}
+        <Tabs.Content value="lineage" className="space-y-6 mt-4">
+          <RenewalLineageCard
+            caseData={caseData}
+            onOpenRenewModal={() => setRenewModalOpen(true)}
+            currentUserRole={currentUserRole}
+          />
+        </Tabs.Content>
+
+        {/* 3. DEDICATED BANK VERIFICATION TAB */}
+        <Tabs.Content value="verification" className="space-y-6 mt-4">
+          <BankVerificationCard caseData={caseData} currentUserRole={currentUserRole} />
+        </Tabs.Content>
+
+        {/* 4. DEDICATED LIFECYCLE & ALERTS TAB */}
+        <Tabs.Content value="lifecycle" className="space-y-6 mt-4">
+          <LifecycleTrackingCard caseData={caseData} />
         </Tabs.Content>
 
         <Tabs.Content value="documents">
@@ -279,6 +433,17 @@ export function CaseDetailPage() {
         isOpen={viewerOpen}
         onClose={() => setViewerOpen(false)}
         onDownload={handleDownloadDocument}
+      />
+
+      <RenewFDRModal
+        caseData={caseData}
+        isOpen={renewModalOpen}
+        onClose={() => setRenewModalOpen(false)}
+        onSuccess={async () => {
+          setRenewModalOpen(false);
+          const refreshed = await casesApi.getById(id!);
+          setCaseData(refreshed);
+        }}
       />
     </div>
   );

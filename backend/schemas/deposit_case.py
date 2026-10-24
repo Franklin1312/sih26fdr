@@ -21,7 +21,7 @@ class DepositCaseBase(BaseModel):
     """Base deposit case fields."""
     deposit_type: DepositType
     deposit_method: DepositMethod
-    amount: Decimal = Field(..., gt=0, max_digits=15, decimal_places=2)
+    amount: Decimal = Field(..., gt=Decimal("0"), max_digits=15, decimal_places=2)
     currency: str = Field(default="INR", min_length=3, max_length=3)
     instrument_number: str = Field(..., min_length=1, max_length=100)
     instrument_date: Optional[datetime] = None
@@ -35,13 +35,26 @@ class DepositCaseBase(BaseModel):
 class DepositCaseCreate(DepositCaseBase):
     """Schema for creating a deposit case."""
     institution_id: str
+    parent_case_id: Optional[str] = None
+
+
+class DepositCaseRenewalCreate(BaseModel):
+    """Schema for submitting an FDR renewal or replacement instrument."""
+    instrument_number: str = Field(..., min_length=1, max_length=100)
+    instrument_date: Optional[datetime] = None
+    issuing_bank: str = Field(..., min_length=1, max_length=255)
+    amount: Decimal = Field(..., gt=Decimal("0"), max_digits=15, decimal_places=2)
+    currency: str = Field(default="INR", min_length=3, max_length=3)
+    maturity_date: datetime
+    term_end_date: Optional[datetime] = None
+    renewal_notes: Optional[str] = None
 
 
 class DepositCaseUpdate(BaseModel):
     """Schema for updating a deposit case (draft only)."""
     deposit_type: Optional[DepositType] = None
     deposit_method: Optional[DepositMethod] = None
-    amount: Optional[Decimal] = Field(default=None, gt=0, max_digits=15, decimal_places=2)
+    amount: Optional[Decimal] = Field(default=None, gt=Decimal("0"), max_digits=15, decimal_places=2)
     currency: Optional[str] = Field(default=None, min_length=3, max_length=3)
     instrument_number: Optional[str] = Field(default=None, min_length=1, max_length=100)
     instrument_date: Optional[datetime] = None
@@ -89,6 +102,8 @@ class DepositCaseDetail(DepositCaseResponse):
     clearances: List["ClearanceTaskResponse"] = []
     release_requests: List["ReleaseRequestResponse"] = []
     lifecycle_dates: List["LifecycleDateResponse"] = []
+    parent_case: Optional["DepositCaseResponse"] = None
+    child_cases: List["DepositCaseResponse"] = []
 
     @computed_field
     @property
@@ -122,6 +137,21 @@ class DepositCaseDashboardStats(BaseModel):
     total_amount: float = 0
     overdue_count: int = 0
     upcoming_maturity_count: int = 0
+
+
+class SystemAlertResponse(BaseModel):
+    """System notification and alert model."""
+    id: str
+    case_id: str
+    case_number: str
+    institution_name: str
+    alert_type: str
+    severity: str  # 'critical' | 'warning' | 'info'
+    title: str
+    message: str
+    due_date: Optional[str] = None
+    days_left: Optional[int] = None
+    created_at: str
 
 
 # Forward references

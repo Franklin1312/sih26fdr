@@ -219,3 +219,102 @@ class TestCasesAPI:
         
         # Should fail validation - institution doesn't exist
         assert response.status_code in [400, 404]
+
+    @pytest.mark.asyncio
+    async def test_renewal_links_parent(self, client: AsyncClient, test_db, demo_institution, demo_user):
+        """Test renewing an FDR creates a linked child case with parent_case_id."""
+        test_db.add(demo_institution)
+        test_db.add(demo_user)
+        await test_db.flush()
+
+        from backend.services.access_control import access_control
+        from backend.schemas.institution import CurrentUserResponse
+        access_control.register_user(CurrentUserResponse(
+            user_id=demo_user.id,
+            email=demo_user.email,
+            full_name=demo_user.full_name,
+            role=demo_user.role,
+            institution_id=demo_user.institution_id,
+            is_active=True,
+        ))
+
+        parent_payload = {
+            "institution_id": demo_institution.id,
+            "deposit_type": "fdr",
+            "deposit_method": "fdr_rpgf",
+            "amount": "2500000.00",
+            "currency": "INR",
+            "instrument_number": "FDR-ORIG-1001",
+            "issuing_bank": "Punjab National Bank",
+            "maturity_date": (datetime.now(timezone.utc) + timedelta(days=10)).isoformat(),
+            "aicte_clause_ref": "6.46",
+        }
+        headers = {"Authorization": f"Bearer {demo_user.id}:institution_rep"}
+        parent_resp = await client.post("/api/v1/cases", json=parent_payload, headers=headers)
+        assert parent_resp.status_code == 201
+        parent_data = parent_resp.json()
+        parent_id = parent_data["id"]
+
+        renewal_payload = {
+            "instrument_number": "FDR-RENEWED-2002",
+            "issuing_bank": "Punjab National Bank",
+            "amount": "2750000.00",
+            "currency": "INR",
+            "maturity_date": (datetime.now(timezone.utc) + timedelta(days=365 * 3)).isoformat(),
+            "renewal_notes": "Rolled over with accrued interest for 3-year term",
+        }
+        renewal_resp = await client.post(f"/api/v1/cases/{parent_id}/renew", json=renewal_payload, headers=headers)
+        assert renewal_resp.status_code == 201
+        renewal_data = renewal_resp.json()
+
+        assert renewal_data["parent_case_id"] == parent_id
+        assert renewal_data["instrument_number"] == "FDR-RENEWED-2002"
+        assert renewal_data["tracking_ref"].endswith("-REN")
+
+        get_resp = await client.get(f"/api/v1/cases/{parent_id}", headers=headers)
+        assert get_resp.status_code == 200
+        parent_detail = get_resp.json()
+        assert any(c["id"] == renewal_data["id"] for c in parent_detail.get("child_cases", []))
+
+    @pytest.mark.asyncio
+    async def test_get_system_alerts(self, client: AsyncClient, test_db, demo_institution, demo_user):
+        """Test retrieving system notifications/alerts for upcoming maturities."""
+        test_db.add(demo_institution)
+        test_db.add(demo_user)
+        await test_db.flush()
+
+        from backend.services.access_control import access_control
+        from backend.schemas.institution import CurrentUserResponse
+        access_control.register_user(CurrentUserResponse(
+            user_id=demo_user.id,
+            email=demo_user.email,
+            full_name=demo_user.full_name,
+            role=demo_user.role,
+            institution_id=demo_user.institution_id,
+            is_active=True,
+        ))
+
+        # Create case maturing in 15 days
+        case_payload = {
+            "institution_id": demo_institution.id,
+            "deposit_type": "fdr",
+            "deposit_method": "fdr_rpgf",
+            "amount": "1000000.00",
+            "currency": "INR",
+            "instrument_number": "FDR-ALERT-001",
+            "issuing_bank": "Canara Bank",
+            "maturity_date": (datetime.now(timezone.utc) + timedelta(days=15)).isoformat(),
+            "aicte_clause_ref": "6.46",
+        }
+        headers = {"Authorization": f"Bearer {demo_user.id}:institution_rep"}
+        resp = await client.post("/api/v1/cases", json=case_payload, headers=headers)
+        assert resp.status_code == 201
+
+        # Query alerts
+        alert_resp = await client.get("/api/v1/cases/alerts", headers=headers)
+        assert alert_resp.status_code == 200
+        alerts = alert_resp.json()
+        assert isinstance(alerts, list)
+        assert any(a["case_number"] == resp.json()["case_number"] for a in alerts)
+
+

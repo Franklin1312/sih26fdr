@@ -8,6 +8,12 @@ import { casesApi } from '../api'
 import { useAuth } from '../auth/useAuth'
 import { getStatusLabel, getStatusColor, formatCurrency, getRoleLabel } from '../utils/helpers'
 import {
+  exportDepositRegisterCsv,
+  exportMaturityScheduleCsv,
+  exportPortfolioSummaryCsv,
+} from '../utils/export'
+import { toast } from 'sonner'
+import {
   FileText,
   TrendingUp,
   AlertTriangle,
@@ -21,6 +27,11 @@ import {
   FileCheck2,
   Search,
   Sparkles,
+  Download,
+  Building,
+  Clock,
+  PieChart,
+  Layers,
 } from 'lucide-react'
 
 export function DashboardPage() {
@@ -34,8 +45,13 @@ export function DashboardPage() {
   })
 
   const { data: casesData } = useQuery({
-    queryKey: ['cases', { page: 1, page_size: 10 }],
-    queryFn: () => casesApi.list({ page: 1, page_size: 10 }),
+    queryKey: ['cases', { page: 1, page_size: 50 }],
+    queryFn: () => casesApi.list({ page: 1, page_size: 50 }),
+  })
+
+  const { data: alerts = [] } = useQuery({
+    queryKey: ['dashboard-alerts'],
+    queryFn: () => casesApi.getAlerts(),
   })
 
   const statCards = [
@@ -98,6 +114,77 @@ export function DashboardPage() {
       (statusFilter === 'released' && item.status.includes('release'))
     return matchesSearch && matchesStatus
   })
+
+  // Bank portfolio breakdown
+  const bankStats = (casesData?.items || []).reduce<Record<string, { count: number; totalAmount: number }>>((acc, item) => {
+    const bank = item.issuing_bank?.trim() || 'Other Scheduled Bank'
+    if (!acc[bank]) acc[bank] = { count: 0, totalAmount: 0 }
+    acc[bank].count += 1
+    acc[bank].totalAmount += Number(item.amount) || 0
+    return acc
+  }, {})
+
+  // Maturity ageing schedule
+  const now = new Date()
+  const ageingStats = (casesData?.items || []).reduce(
+    (acc, item) => {
+      const amt = Number(item.amount) || 0
+      if (!item.maturity_date) {
+        acc.longTerm.count += 1
+        acc.longTerm.amount += amt
+        return acc
+      }
+      const mat = new Date(item.maturity_date)
+      const diffDays = Math.ceil((mat.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+      if (diffDays < 0) {
+        acc.overdue.count += 1
+        acc.overdue.amount += amt
+      } else if (diffDays <= 30) {
+        acc.critical.count += 1
+        acc.critical.amount += amt
+      } else if (diffDays <= 90) {
+        acc.nearTerm.count += 1
+        acc.nearTerm.amount += amt
+      } else {
+        acc.longTerm.count += 1
+        acc.longTerm.amount += amt
+      }
+      return acc
+    },
+    {
+      overdue: { label: 'Expired / Overdue', count: 0, amount: 0, badge: 'bg-rose-50 text-rose-700' },
+      critical: { label: 'Critical (< 30d)', count: 0, amount: 0, badge: 'bg-amber-50 text-amber-700' },
+      nearTerm: { label: 'Action Due (31-90d)', count: 0, amount: 0, badge: 'bg-blue-50 text-blue-700' },
+      longTerm: { label: 'Compliant (> 90d)', count: 0, amount: 0, badge: 'bg-emerald-50 text-emerald-700' },
+    }
+  )
+
+  const handleExportRegister = () => {
+    if (!casesData?.items?.length) {
+      toast.error('No deposit cases found to export')
+      return
+    }
+    exportDepositRegisterCsv(casesData.items)
+    toast.success('AICTE Deposit Register CSV exported')
+  }
+
+  const handleExportMaturity = () => {
+    if (!alerts.length) {
+      toast.info('No pending maturity alerts to export')
+      return
+    }
+    exportMaturityScheduleCsv(alerts)
+    toast.success('Maturity & Expiry Schedule CSV exported')
+  }
+
+  const handleExportSummary = () => {
+    if (!stats) {
+      toast.error('Dashboard metrics not loaded')
+      return
+    }
+    exportPortfolioSummaryCsv(stats, bankStats)
+    toast.success('Executive MIS Summary CSV exported')
+  }
 
   return (
     <div className="space-y-8 animate-fade-up">
@@ -205,6 +292,181 @@ export function DashboardPage() {
                 </div>
               )
             })}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Executive MIS Reports & Statutory Reconciliation (Capability 8) */}
+      <Card className="border-slate-200/90 shadow-sm bg-white overflow-hidden">
+        <CardHeader className="border-b border-slate-100 bg-slate-50/60 pb-4">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-600 to-primary-600 text-white shadow-sm">
+                <PieChart className="h-5 w-5" />
+              </div>
+              <div>
+                <CardTitle className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  Executive MIS & Statutory Compliance Reports
+                  <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-[10px] font-bold text-indigo-700">
+                    Capability 8
+                  </span>
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Portfolio aggregation, bank distribution, validity schedules, and audit-ready data export
+                </CardDescription>
+              </div>
+            </div>
+
+            {/* Quick Export Actions */}
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportRegister}
+                className="h-8 text-xs font-semibold border-slate-200 hover:border-primary-300 hover:bg-primary-50 hover:text-primary-700"
+              >
+                <Download className="h-3.5 w-3.5 mr-1 text-slate-500" />
+                Deposit Register (CSV)
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportMaturity}
+                className="h-8 text-xs font-semibold border-slate-200 hover:border-amber-300 hover:bg-amber-50 hover:text-amber-700"
+              >
+                <Clock className="h-3.5 w-3.5 mr-1 text-amber-500" />
+                Maturity Schedule (CSV)
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleExportSummary}
+                className="h-8 text-xs font-semibold border-slate-200 hover:border-emerald-300 hover:bg-emerald-50 hover:text-emerald-700"
+              >
+                <Layers className="h-3.5 w-3.5 mr-1 text-emerald-500" />
+                Portfolio Summary (CSV)
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+
+        <CardContent className="p-6">
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Left Col: Bank-wise Portfolio Allocation */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Building className="h-4 w-4 text-slate-500" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Bank-Wise Portfolio Allocation
+                  </h4>
+                </div>
+                <span className="text-[11px] text-slate-400 font-medium">
+                  {Object.keys(bankStats).length} Scheduled Banks
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {Object.keys(bankStats).length > 0 ? (
+                  Object.entries(bankStats)
+                    .sort((a, b) => b[1].totalAmount - a[1].totalAmount)
+                    .slice(0, 5)
+                    .map(([bankName, data]) => {
+                      const totalPortfolio = stats?.total_amount || 1
+                      const pct = Math.min(100, Math.round((data.totalAmount / totalPortfolio) * 100))
+                      return (
+                        <div key={bankName} className="rounded-xl border border-slate-100 bg-slate-50/50 p-3">
+                          <div className="flex items-center justify-between text-xs mb-1.5">
+                            <span className="font-semibold text-slate-800 truncate max-w-[200px]" title={bankName}>
+                              {bankName}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-slate-500 text-[11px]">{data.count} FDR{data.count > 1 ? 's' : ''}</span>
+                              <span className="font-bold text-slate-900">{formatCurrency(data.totalAmount)}</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="h-2 flex-1 rounded-full bg-slate-200 overflow-hidden">
+                              <div
+                                className="h-full rounded-full bg-gradient-to-r from-primary-600 to-indigo-500 transition-all duration-500"
+                                style={{ width: `${Math.max(5, pct)}%` }}
+                              />
+                            </div>
+                            <span className="text-[10px] font-mono text-slate-400 w-8 text-right">{pct}%</span>
+                          </div>
+                        </div>
+                      )
+                    })
+                ) : (
+                  <div className="rounded-xl border border-dashed border-slate-200 p-6 text-center text-xs text-slate-400">
+                    No bank-allocated instruments recorded yet.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right Col: Maturity & Expiry Ageing Brackets */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-slate-500" />
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                    Maturity & Validity Ageing Schedule
+                  </h4>
+                </div>
+                <span className="text-[11px] text-slate-400 font-medium">
+                  Clause 6.46 Statutory Timelines
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                {Object.entries(ageingStats).map(([key, item]) => (
+                  <div
+                    key={key}
+                    className="flex flex-col justify-between rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-2xs hover:border-slate-300 transition-all"
+                  >
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={`rounded-md px-2 py-0.5 text-[10px] font-bold ${item.badge}`}>
+                          {item.label}
+                        </span>
+                      </div>
+                      <p className="font-display text-xl font-black text-slate-900 mt-2">
+                        {item.count}
+                        <span className="text-xs font-normal text-slate-400 ml-1">Case{item.count !== 1 ? 's' : ''}</span>
+                      </p>
+                    </div>
+                    <div className="mt-3 pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                      <span className="text-slate-400">Locked Value</span>
+                      <span className="font-semibold text-slate-700">{formatCurrency(item.amount)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Alert Status Callout */}
+              <div className="mt-3.5 flex items-center justify-between rounded-xl bg-amber-50/70 border border-amber-200/60 p-3">
+                <div className="flex items-center gap-2.5">
+                  <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                  <div className="text-xs">
+                    <p className="font-bold text-amber-900">
+                      {alerts.length} Regulatory Alert{alerts.length !== 1 ? 's' : ''} Active
+                    </p>
+                    <p className="text-[11px] text-amber-700">
+                      Requires renewal or scrutiny action before expiry deadline
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleExportMaturity}
+                  className="h-7 text-[11px] border-amber-200 bg-white hover:bg-amber-100/60 text-amber-900"
+                >
+                  Export Alerts
+                </Button>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
