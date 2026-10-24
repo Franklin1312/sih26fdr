@@ -2,6 +2,7 @@ import { createBrowserRouter } from 'react-router-dom'
 import { Layout } from '../components/layout'
 import { DashboardPage } from '../pages/DashboardPage'
 import { LoginPage } from '../pages/auth/LoginPage'
+import { WizardPage } from '../pages/wizard'
 
 export const router = createBrowserRouter([
   {
@@ -13,7 +14,11 @@ export const router = createBrowserRouter([
     children: [
       { path: '/', element: <DashboardPage /> },
       { path: '/dashboard', element: <DashboardPage /> },
-      { path: '/wizard', element: <div>Wizard Page - Coming Soon</div> },
+      { path: '/wizard/new', element: <WizardPage isNew /> },
+      { path: '/wizard/:caseId/step1', element: <WizardPage /> },
+      { path: '/wizard/:caseId/step2', element: <WizardPage /> },
+      { path: '/wizard/:caseId/step3', element: <WizardPage /> },
+      { path: '/wizard/:caseId/step4', element: <WizardPage /> },
       { path: '/my-cases', element: <div>My Cases Page - Coming Soon</div> },
       { path: '/cases/:id', element: <div>Case Detail Page - Coming Soon</div> },
       { path: '/scrutiny', element: <div>Scrutiny Page - Coming Soon</div> },

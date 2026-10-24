@@ -41,7 +41,7 @@ export function DashboardPage() {
           <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
           <p className="text-gray-500 mt-1">Overview of your deposit refund cases</p>
         </div>
-        <Link to="/wizard">
+        <Link to="/wizard/new">
           <Button><Plus className="h-4 w-4 mr-2" />New Submission</Button>
         </Link>
       </div>
@@ -91,7 +91,7 @@ export function DashboardPage() {
         <CardHeader><CardTitle>Quick Actions</CardTitle></CardHeader>
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <Link to="/wizard" className="p-4 border border-gray-200 rounded-xl hover:border-primary-300 hover:bg-primary-50 transition-colors">
+            <Link to="/wizard/new" className="p-4 border border-gray-200 rounded-xl hover:border-primary-300 hover:bg-primary-50 transition-colors">
               <div className="h-10 w-10 rounded-lg bg-primary-100 flex items-center justify-center mb-3"><FileText className="h-5 w-5 text-primary-600" /></div>
               <h3 className="font-medium text-gray-900">New Submission</h3>
               <p className="text-sm text-gray-500 mt-1">Start a new deposit case</p>

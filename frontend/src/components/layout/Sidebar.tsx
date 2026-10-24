@@ -27,7 +27,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { label: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard className="h-5 w-5" />, roles: ['INSTITUTION_REP', 'SCRUTINY_OFFICER', 'CLEARANCE_OFFICER', 'COMPETENT_AUTHORITY', 'SYSTEM_ADMIN'] },
-  { label: 'New Submission', path: '/wizard', icon: <FileText className="h-5 w-5" />, roles: ['INSTITUTION_REP'] },
+  { label: 'New Submission', path: '/wizard/new', icon: <FileText className="h-5 w-5" />, roles: ['INSTITUTION_REP'] },
   { label: 'My Cases', path: '/my-cases', icon: <Search className="h-5 w-5" />, roles: ['INSTITUTION_REP'] },
   { label: 'Scrutiny Queue', path: '/scrutiny', icon: <ClipboardCheck className="h-5 w-5" />, roles: ['SCRUTINY_OFFICER', 'SYSTEM_ADMIN'] },
   { label: 'Clearance Queue', path: '/clearance', icon: <Gavel className="h-5 w-5" />, roles: ['CLEARANCE_OFFICER', 'SYSTEM_ADMIN'] },
