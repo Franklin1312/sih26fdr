@@ -71,3 +71,40 @@ gen_*.py
 write_*.py
 test_write.txt
 simple_write.py
+
+# Frontend (React + Vite + TypeScript)
+# Dependencies
+frontend/node_modules/
+
+# Build output
+frontend/dist/
+frontend/build/
+
+# Vite
+frontend/.vite/
+
+# Environment files
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+
+# IDE & Editor
+frontend/.vscode/
+frontend/.idea/
+
+# OS
+frontend/.DS_Store
+frontend/Thumbs.db
+
+# Logs
+frontend/*.log
+frontend/logs/
+
+# TypeScript
+frontend/*.tsbuildinfo
+
+# Test coverage
+frontend/coverage/
+
+# Temporary
+frontend/*.local

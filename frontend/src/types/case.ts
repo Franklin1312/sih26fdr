@@ -1,0 +1,204 @@
+export type DepositType =
+  | 'security_deposit'
+  | 'fdr'
+  | 'rpgf'
+  | 'bank_guarantee'
+
+export type DepositMethod =
+  | 'fdr_rpgf'
+  | 'rtgs'
+  | 'security_deposit_refund'
+
+export type CaseStatus =
+  | 'draft'
+  | 'submitted'
+  | 'under_scrutiny'
+  | 'clarification_pending'
+  | 'clearance_queue'
+  | 'cleared'
+  | 'release_requested'
+  | 'review'
+  | 'final_decision'
+  | 'released'
+  | 'rejected'
+  | 'closed'
+
+// Common pagination types
+export interface PaginationParams {
+  page?: number
+  page_size?: number
+  search?: string
+}
+
+export interface PaginatedResponse<T> {
+  items: T[]
+  total: number
+  page: number
+  page_size: number
+  total_pages: number
+}
+
+export interface DepositCaseCreate {
+  institution_id: string
+  deposit_type: DepositType
+  deposit_method: DepositMethod
+  amount: number
+  currency: string
+  maturity_date: string | null
+  instrument_number: string
+  instrument_date: string
+  issuing_bank: string
+  term_end_date?: string | null
+}
+
+export interface DepositCaseUpdate {
+  deposit_type?: DepositType
+  deposit_method?: DepositMethod
+  amount?: number
+  currency?: string
+  maturity_date?: string | null
+  instrument_number?: string
+  instrument_date?: string
+  issuing_bank?: string
+  term_end_date?: string | null
+}
+
+export interface DepositCaseStatusUpdate {
+  new_status: CaseStatus
+  reason?: string
+  details?: Record<string, unknown>
+}
+
+export interface DepositCaseResponse {
+  id: string
+  case_number: string
+  tracking_ref: string | null
+  institution_id: string
+  deposit_type: DepositType
+  deposit_method: DepositMethod
+  amount: number
+  currency: string
+  maturity_date: string | null
+  instrument_number: string
+  instrument_date: string
+  issuing_bank: string
+  status: CaseStatus
+  created_at: string
+  updated_at: string
+  submitted_at: string | null
+  assigned_officer_id: string | null
+  term_end_date: string | null
+}
+
+export interface DepositCaseDetail extends DepositCaseResponse {
+  institution: import('./institution').InstitutionResponse | null
+  assigned_officer: import('./auth').UserResponse | null
+  documents: DepositEvidenceResponse[]
+  events: CaseEventResponse[]
+  clarifications: ClarificationRequestResponse[]
+  clearances: ClearanceTaskResponse[]
+  dashboard_stats?: DashboardStats
+}
+
+export interface DepositEvidenceResponse {
+  id: string
+  case_id: string
+  document_type: string
+  file_path: string
+  original_filename: string
+  file_size: number
+  mime_type: string
+  uploaded_by: string
+  file_hash: string
+  version: number
+  ocr_text: string | null
+  ocr_confidence: number | null
+  validation_flags: Record<string, unknown> | null
+  extracted_data: Record<string, unknown> | null
+  replaced_by_id: string | null
+  created_at: string
+  uploaded_by_user?: import('./auth').UserResponse
+}
+
+export interface DepositEvidenceUploadResponse {
+  id: string
+  case_id: string
+  document_type: string
+  original_filename: string
+  file_size: number
+  mime_type: string
+  version: number
+  file_hash: string
+  uploaded_by: string
+  created_at: string
+  replaced_id: string | null
+  ocr_text: string | null
+  ocr_confidence: number | null
+  validation_flags: Record<string, unknown> | null
+  extracted_data: Record<string, unknown> | null
+}
+
+export interface DepositEvidenceListResponse extends PaginatedResponse<DepositEvidenceResponse> {}
+
+export interface DashboardStats {
+  total: number
+  by_status: Record<string, number>
+  by_deposit_type: Record<string, number>
+  by_deposit_method: Record<string, number>
+  total_amount: number
+  overdue_count: number
+  upcoming_maturity_count: number
+}
+
+export interface DepositCaseDashboardStats extends DashboardStats {}
+
+export interface CaseEventResponse {
+  id: string
+  case_id: string
+  event_type: string
+  old_status: string | null
+  new_status: string | null
+  details: Record<string, unknown> | null
+  actor_id: string
+  created_at: string
+  actor?: import('./auth').UserResponse
+}
+
+// Forward reference types
+export interface ClarificationRequestResponse {
+  id: string
+  case_id: string
+  requested_by: string
+  status: 'pending' | 'responded' | 'resolved'
+  items: Array<{
+    id: string
+    document_type: string
+    reason: string
+    details?: string
+    response?: string
+    responded_at?: string
+    responded_by?: string
+  }>
+  created_at: string
+  updated_at: string
+  requested_by_user?: import('./auth').UserResponse
+  responded_by_user?: import('./auth').UserResponse
+}
+
+export interface ClearanceTaskResponse {
+  id: string
+  case_id: string
+  clearance_type: string
+  assigned_to: string | null
+  status: string
+  evidence: string[] | null
+  notes: string | null
+  completed_at: string | null
+  created_at: string
+  updated_at: string
+  assigned_to_user?: import('./auth').UserResponse
+  case_number?: string
+  institution_name?: string
+  deposit_type?: DepositType
+  deposit_method?: DepositMethod
+}
