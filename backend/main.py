@@ -11,7 +11,7 @@ from backend.database import init_db, close_db
 from backend.services.auth import validate_startup_config as validate_auth_config
 from backend.services.audit_service import audit_service
 from backend.services.access_control import access_control
-from backend.routes import institutions, users, cases, evidence, wizard, clarification, scrutiny
+from backend.routes import institutions, users, cases, evidence, wizard, clarification, scrutiny, clearance, release
 
 settings = get_settings()
 
@@ -173,6 +173,8 @@ app.include_router(evidence.router, prefix="/api/v1/cases", tags=["evidence"])
 app.include_router(wizard.router, prefix="/api/v1/wizard", tags=["wizard"])
 app.include_router(clarification.router, prefix="/api/v1", tags=["clarifications"])
 app.include_router(scrutiny.router, prefix="/api/v1", tags=["scrutiny"])
+app.include_router(clearance.router, prefix="/api/v1", tags=["clearance"])
+app.include_router(release.router, prefix="/api/v1", tags=["release"])
 
 
 if __name__ == "__main__":
