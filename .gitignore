@@ -64,3 +64,10 @@ coverage.xml
 
 # Type checking
 *.pyi
+
+# Temporary development files
+*.orig
+gen_*.py
+write_*.py
+test_write.txt
+simple_write.py

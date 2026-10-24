@@ -50,6 +50,10 @@ class DepositEvidenceUploadResponse(DepositEvidenceBase, IDMixin, TimestampMixin
     file_hash: str
     version: int
     replaced_id: Optional[str] = None
+    ocr_text: Optional[str] = None
+    ocr_confidence: Optional[float] = None
+    validation_flags: Optional[Dict[str, Any]] = None
+    extracted_data: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(from_attributes=True)
 

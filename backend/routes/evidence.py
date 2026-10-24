@@ -93,14 +93,12 @@ async def upload_evidence(
     
     try:
         # Save file using storage service
-        import io
-        file_meta = file_storage.save_file(
+        file_meta = await file_storage.upload_file(
             case_id=case_id,
-            document_type=document_type,
-            file_content=io.BytesIO(file_content),
+            file_content=file_content,
             original_filename=file.filename,
             mime_type=mime_type,
-            uploaded_by=user.user_id,
+            document_type=document_type,
         )
     except FileValidationError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
@@ -123,7 +121,7 @@ async def upload_evidence(
         replaced_id = existing.id
         existing.replaced_by_id = str(uuid4())  # placeholder, will update after new evidence created
     
-    # Create evidence record
+    # Create evidence record with OCR data
     evidence = DepositEvidence(
         id=str(uuid4()),
         case_id=case_id,
@@ -136,6 +134,9 @@ async def upload_evidence(
         file_hash=file_meta["file_hash"],
         version=version,
         replaced_by_id=replaced_id,
+        ocr_text=file_meta.get("ocr_text"),
+        ocr_confidence=file_meta.get("ocr_confidence"),
+        extracted_data=file_meta.get("extracted_data"),
     )
     
     # Update replaced_by_id on existing record if applicable
@@ -179,6 +180,10 @@ async def upload_evidence(
         uploaded_by=evidence.uploaded_by,
         created_at=evidence.created_at,
         replaced_id=replaced_id,
+        ocr_text=evidence.ocr_text,
+        ocr_confidence=evidence.ocr_confidence,
+        validation_flags=evidence.validation_flags,
+        extracted_data=evidence.extracted_data,
     )
 
 
