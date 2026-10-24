@@ -5,11 +5,12 @@ import { Textarea } from '../ui/Input';
 import { Badge } from '../ui/Badge';
 import { formatDate } from '../../utils/helpers';
 import type { ClarificationRequestResponse } from '../../types/case';
+import type { UserRole } from '../../types/auth';
 
 interface ClarificationThreadProps {
   clarifications: ClarificationRequestResponse[];
   onRespond?: (clarificationId: string, response: string) => void;
-  currentUserRole: 'institution_rep' | 'scrutiny_officer' | 'clearance_officer' | 'competent_authority';
+  currentUserRole: UserRole;
   caseId: string;
 }
 

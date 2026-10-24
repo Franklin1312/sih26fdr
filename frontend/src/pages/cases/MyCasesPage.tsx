@@ -57,6 +57,8 @@ export function MyCasesPage() {
   }, [page, pageSize, search, statusFilter, depositTypeFilter, dateFrom, dateTo]);
 
   useEffect(() => {
+    // Fetch the current page whenever its search and filter inputs change.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchCases();
   }, [fetchCases]);
 

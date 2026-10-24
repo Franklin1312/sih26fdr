@@ -7,7 +7,7 @@ export interface ScrutinyStats {
   total_cases: number
 }
 
-export interface ScrutinyQueueResponse extends PaginatedResponse<DepositCaseResponse> {}
+export type ScrutinyQueueResponse = PaginatedResponse<DepositCaseResponse>
 
 export type ScrutinyCaseDetail = DepositCaseDetail
 

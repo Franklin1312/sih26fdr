@@ -69,23 +69,38 @@ export function useWizard(): UseWizardReturn {
   const [wizardState, setWizardState] = useState<WizardStateResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [formData, setFormData] = useState<StepFormData>({});
-  
-  useEffect(() => {
+  const [formData, setFormData] = useState<StepFormData>(() => {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) setFormData(JSON.parse(stored));
-    } catch {}
-  }, []);
+      return stored ? JSON.parse(stored) as StepFormData : {};
+    } catch {
+      return {};
+    }
+  });
   
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(formData));
-    } catch {}
+    } catch {
+      // Local storage can be unavailable in restricted browser contexts.
+    }
   }, [formData]);
   
   const caseId = urlCaseId || wizardState?.case_id || null;
   const currentStep = wizardState ? getStepNumber(wizardState.current_step) : 1;
+
+  const updateFormData = useCallback(<K extends keyof StepFormData>(step: K, data: StepFormData[K]) => {
+    setFormData(prev => ({ ...prev, [step]: data }));
+  }, []);
+
+  const clearStorage = useCallback(() => {
+    try {
+      localStorage.removeItem(STORAGE_KEY);
+      setFormData({});
+    } catch {
+      setFormData({});
+    }
+  }, []);
 
   const canProceedToStep = useCallback((step: number): boolean => {
     if (!wizardState) return step === 1;
@@ -114,6 +129,8 @@ export function useWizard(): UseWizardReturn {
   }, []);
 
   useEffect(() => {
+    // Fetching here synchronizes this hook with the route's case ID.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (caseId) loadWizardState(caseId);
   }, [caseId, loadWizardState]);
 
@@ -156,7 +173,7 @@ export function useWizard(): UseWizardReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [caseId, loadWizardState]);
+  }, [caseId, loadWizardState, updateFormData]);
 
   const saveStep2 = useCallback(async (data: WizardStep2Request): Promise<WizardStep2Response | null> => {
     if (!caseId) return null;
@@ -180,7 +197,7 @@ export function useWizard(): UseWizardReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [caseId, loadWizardState]);
+  }, [caseId, loadWizardState, updateFormData]);
 
   const saveStep3 = useCallback(async (data: WizardStep3Request): Promise<WizardStep3Response | null> => {
     if (!caseId) return null;
@@ -204,7 +221,7 @@ export function useWizard(): UseWizardReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [caseId, loadWizardState]);
+  }, [caseId, loadWizardState, updateFormData]);
 
   const submitStep4 = useCallback(async (): Promise<WizardStep4Response | null> => {
     if (!caseId) return null;
@@ -233,24 +250,13 @@ export function useWizard(): UseWizardReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [caseId]);
-
-  const updateFormData = useCallback(<K extends keyof StepFormData>(step: K, data: StepFormData[K]) => {
-    setFormData(prev => ({ ...prev, [step]: data }));
-  }, []);
+  }, [caseId, clearStorage]);
 
   const goToStep = useCallback((step: number) => {
     if (!caseId || !canProceedToStep(step)) return;
     const stepPath = getStepState(step).toLowerCase().replace('_', '');
     navigate(`/wizard/${caseId}/${stepPath}`);
   }, [caseId, canProceedToStep, navigate]);
-
-  const clearStorage = useCallback(() => {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-      setFormData({});
-    } catch {}
-  }, []);
 
   return {
     caseId,

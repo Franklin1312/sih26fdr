@@ -43,8 +43,8 @@ export function ClearanceTaskDetailPage() {
       try {
         const data = await clearanceApi.getTaskDetail(taskId);
         setTask(data);
-      } catch (err: any) {
-        setError(err.message || 'Failed to load task details');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load task details');
       } finally {
         setLoading(false);
       }
@@ -60,8 +60,8 @@ export function ClearanceTaskDetailPage() {
       const data = await clearanceApi.getTaskDetail(taskId);
       setTask(data);
       setActionModalOpen(false);
-    } catch (err: any) {
-      alert(err.message || 'Failed to claim task');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to claim task');
     } finally {
       setActionLoading(false);
     }
@@ -76,8 +76,8 @@ export function ClearanceTaskDetailPage() {
       setTask(data);
       setActionModalOpen(false);
       setNotes('');
-    } catch (err: any) {
-      alert(err.message || 'Failed to complete task');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to complete task');
     } finally {
       setActionLoading(false);
     }

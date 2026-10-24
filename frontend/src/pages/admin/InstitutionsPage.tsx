@@ -18,11 +18,15 @@ export function InstitutionsPage() {
   const [formData, setFormData] = useState<InstitutionFormData>({ name: '', code: '', address: '', contact_email: '', is_active: true });
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => { fetchInstitutions(); }, []);
-
   const fetchInstitutions = async () => {
     try { setLoading(true); const res = await institutionsApi.list({ page: 1, page_size: 100 }); setInstitutions(res.items || []); } catch (e) { console.error(e); } finally { setLoading(false); }
   };
+
+  useEffect(() => {
+    // Load institutions once when the page opens.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchInstitutions();
+  }, []);
 
   const filtered = institutions.filter(i => i.name.toLowerCase().includes(search.toLowerCase()) || i.code.toLowerCase().includes(search.toLowerCase()));
 
@@ -37,13 +41,13 @@ export function InstitutionsPage() {
       if (editingInstitution) { await institutionsApi.update(editingInstitution.id, formData); }
       else { await institutionsApi.create(formData); }
       fetchInstitutions(); closeModal();
-    } catch (err: any) { alert(err.message || 'Failed to save institution'); }
+    } catch (err: unknown) { alert(err instanceof Error ? err.message : 'Failed to save institution'); }
     finally { setSubmitting(false); }
   };
 
   const handleDelete = async (inst: Institution) => {
     if (!window.confirm(`Delete ${inst.name}?`)) return;
-    try { await institutionsApi.delete(inst.id); fetchInstitutions(); } catch (err: any) { alert(err.message || 'Failed to delete'); }
+    try { await institutionsApi.delete(inst.id); fetchInstitutions(); } catch (err: unknown) { alert(err instanceof Error ? err.message : 'Failed to delete'); }
   };
 
   if (loading) return <div className="flex items-center justify-center h-64"><Loader2 className="h-8 w-8 animate-spin text-primary-600" /></div>;

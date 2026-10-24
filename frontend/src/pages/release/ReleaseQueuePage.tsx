@@ -37,7 +37,11 @@ export function ReleaseQueuePage() {
     }
   }, [filters]);
 
-  useEffect(() => { void fetchQueue(); }, [fetchQueue]);
+  useEffect(() => {
+    // Refresh the queue when its filters change.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchQueue();
+  }, [fetchQueue]);
 
   const columns: Column<ReleaseQueueItem>[] = [
     { key: 'case_number', header: 'Case Number', sortable: true, render: (row) => <Link to={`/release/cases/${row.case_id}`} className="font-medium text-primary-600 hover:underline">{row.case_number}</Link> },

@@ -39,8 +39,8 @@ export function ScrutinyCaseDetailPage() {
       try {
         const data = await scrutinyApi.getCaseDetail(caseId);
         setCaseData(data);
-      } catch (err: any) {
-        setError(err.message || 'Failed to load case details');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load case details');
       } finally {
         setLoading(false);
       }
@@ -73,8 +73,8 @@ export function ScrutinyCaseDetailPage() {
       const data = await scrutinyApi.getCaseDetail(caseId!);
       setCaseData(data);
       setTransitionModalOpen(false);
-    } catch (err: any) {
-      alert(err.message || 'Failed to transition status');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to transition status');
     }
   };
 
@@ -84,8 +84,8 @@ export function ScrutinyCaseDetailPage() {
       const data = await scrutinyApi.getCaseDetail(caseId!);
       setCaseData(data);
       setClarificationModalOpen(false);
-    } catch (err: any) {
-      alert(err.message || 'Failed to request clarification');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to request clarification');
     }
   };
 

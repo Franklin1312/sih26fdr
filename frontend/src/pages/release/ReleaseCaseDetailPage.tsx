@@ -45,8 +45,8 @@ export function ReleaseCaseDetailPage() {
         setCaseData(caseRes);
         setChecklist(checklistRes.items || []);
         setDepositCase(depositCaseRes);
-      } catch (err: any) {
-        setError(err.message || 'Failed to load case details');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load case details');
       } finally {
         setLoading(false);
       }
@@ -85,8 +85,8 @@ export function ReleaseCaseDetailPage() {
       setCaseData(data);
       setDecisionModalOpen(false);
       setRationale('');
-    } catch (err: any) {
-      alert(err.message || 'Failed to make decision');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to make decision');
     } finally {
       setDecisionLoading(false);
     }

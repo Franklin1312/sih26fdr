@@ -9,6 +9,7 @@ import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { ArrowLeft } from 'lucide-react';
 import { useAuth } from '../../auth/useAuth';
+import type { WizardStep1Request, WizardStep2Request, WizardStep3Request } from '../../types/wizard';
 
 interface WizardPageProps {
   isNew?: boolean;
@@ -46,15 +47,15 @@ export function WizardPage({ isNew = false }: WizardPageProps) {
       ].filter(Boolean) as number[]
     : [];
 
-  const handleStep1Submit = async (data: any) => {
+  const handleStep1Submit = async (data: WizardStep1Request) => {
     await saveStep1(data);
   };
 
-  const handleStep2Submit = async (data: any) => {
+  const handleStep2Submit = async (data: WizardStep2Request) => {
     await saveStep2(data);
   };
 
-  const handleStep3Submit = async (data: any) => {
+  const handleStep3Submit = async (data: WizardStep3Request) => {
     const result = await saveStep3(data);
     if (result?.success) await submitStep4();
   };

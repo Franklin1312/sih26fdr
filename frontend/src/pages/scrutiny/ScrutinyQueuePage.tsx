@@ -41,14 +41,16 @@ export function ScrutinyQueuePage() {
       ]);
       setData(queueRes);
       setStats(statsRes);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load scrutiny queue');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Failed to load scrutiny queue');
     } finally {
       setLoading(false);
     }
   }, [filters]);
 
   useEffect(() => {
+    // Refresh the queue when its filters change.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchQueue();
   }, [fetchQueue]);
 
@@ -132,8 +134,8 @@ export function ScrutinyQueuePage() {
     try {
       await scrutinyApi.assignCase(caseId);
       fetchQueue();
-    } catch (err: any) {
-      alert(err.message || 'Failed to assign case');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to assign case');
     }
   };
 
@@ -141,8 +143,8 @@ export function ScrutinyQueuePage() {
     try {
       await scrutinyApi.unassignCase(caseId);
       fetchQueue();
-    } catch (err: any) {
-      alert(err.message || 'Failed to unassign case');
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Failed to unassign case');
     }
   };
 

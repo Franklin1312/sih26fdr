@@ -29,11 +29,15 @@ export function UsersPage() {
   const [formData, setFormData] = useState<UserFormData>({ email: '', full_name: '', role: 'scrutiny_officer', is_active: true, password: '' });
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => { fetchUsers(); }, []);
-
   const fetchUsers = async () => {
     try { setLoading(true); const res = await usersApi.list({ page: 1, page_size: 100 }); setUsers(res.items || []); } catch (e) { console.error(e); } finally { setLoading(false); }
   };
+
+  useEffect(() => {
+    // Load users once when the page opens.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    fetchUsers();
+  }, []);
 
   const filtered = users.filter(u => u.full_name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase()));
 
@@ -48,13 +52,13 @@ export function UsersPage() {
       if (editingUser) { await usersApi.update(editingUser.id, { full_name: formData.full_name, role: formData.role, is_active: formData.is_active, ...(formData.password ? { password: formData.password } : {}) }); }
       else { await usersApi.create(formData); }
       fetchUsers(); closeModal();
-    } catch (err: any) { alert(err.message || 'Failed to save user'); }
+    } catch (err: unknown) { alert(err instanceof Error ? err.message : 'Failed to save user'); }
     finally { setSubmitting(false); }
   };
 
   const handleDeactivate = async (user: User) => {
     if (!window.confirm(`Deactivate ${user.full_name}?`)) return;
-    try { await usersApi.update(user.id, { is_active: false }); fetchUsers(); } catch (err: any) { alert(err.message || 'Failed to deactivate'); }
+    try { await usersApi.update(user.id, { is_active: false }); fetchUsers(); } catch (err: unknown) { alert(err instanceof Error ? err.message : 'Failed to deactivate'); }
   };
 
   const roleBadge = (role: string) => {

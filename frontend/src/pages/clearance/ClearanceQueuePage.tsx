@@ -47,7 +47,11 @@ export function ClearanceQueuePage() {
     }
   }, [filters, activeTab]);
 
-  useEffect(() => { void fetchQueue(); }, [fetchQueue]);
+  useEffect(() => {
+    // Refresh the queue when its filters change.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchQueue();
+  }, [fetchQueue]);
 
   const columns: Column<ClearanceQueueItem>[] = [
     {

@@ -46,8 +46,8 @@ export function CaseDetailPage() {
         } else {
           setReleaseChecklist(null);
         }
-      } catch (err: any) {
-        setError(err.message || 'Failed to load case details');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load case details');
       } finally {
         setLoading(false);
       }
@@ -254,7 +254,7 @@ export function CaseDetailPage() {
             <div className="bg-white border border-gray-200 rounded-xl p-6">
               <ClarificationThread
                 clarifications={caseData.clarifications || []}
-                currentUserRole={currentUserRole as any}
+                currentUserRole={currentUserRole}
                 caseId={id!}
               />
             </div>
