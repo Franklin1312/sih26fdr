@@ -60,7 +60,7 @@ class Settings(BaseSettings):
     email_from: str = Field(default="noreply@sih26265.demo", alias="EMAIL_FROM")
 
     # CORS
-    cors_allow_origins: str = Field(default="http://localhost:8501,http://127.0.0.1:8501", alias="CORS_ALLOW_ORIGINS")
+    cors_allow_origins: str = Field(default="http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://127.0.0.1:3000", alias="CORS_ALLOW_ORIGINS")
     cors_allow_credentials: bool = Field(default=True, alias="CORS_ALLOW_CREDENTIALS")
 
     @property

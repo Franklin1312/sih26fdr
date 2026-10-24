@@ -21,6 +21,7 @@ from backend.models.entities_release import (
 )
 from backend.models.entities_core import User
 from backend.models.enums import (
+    AuditAction,
     CaseStatus,
     ReleaseDecision,
     ReleaseRequestType,
@@ -39,6 +40,95 @@ from backend.schemas.clearance import (
 from backend.schemas.institution import CurrentUserResponse
 
 router = APIRouter(prefix="/release", tags=["release"])
+
+
+def _review_status(path: str) -> CaseStatus:
+    return {
+        "fdr_rpgf": CaseStatus.FDR_RPGF_REVIEW,
+        "rtgs": CaseStatus.RTGS_REVIEW,
+        "sd_refund": CaseStatus.SD_REFUND_REVIEW,
+    }[path]
+
+
+def _evaluate_release_checklist(case: DepositCase, release_request: ReleaseRequest) -> dict:
+    """Evaluate evidence and clearance records against the configured release checklist."""
+    engine = get_checklist_engine()
+    case_data = {
+        "deposit_method": case.deposit_method.value,
+        "amount": float(case.amount),
+        "institution_type": case.institution.institution_type if case.institution else "unknown",
+    }
+    rules = engine.rule_engine.get_release_checklist_items(
+        release_request.request_type.value, case.deposit_method.value
+    )
+    rules_by_key = {item["key"]: item for item in rules}
+    generated = engine.generate_checklist(
+        release_request.request_type.value, case.deposit_method.value, case_data
+    )
+    document_types = {
+        evidence.document_type for evidence in (case.evidence or [])
+        if not evidence.is_deleted and evidence.replaced_by_id is None
+    }
+    clearances = case.clearances or []
+    completed_items = []
+    missing = []
+    mandatory_count = 0
+    completed_count = 0
+    for item in generated:
+        config = rules_by_key.get(item.key, {})
+        if item.key in {"pgrc_clearance", "financial_clearance"}:
+            complete = any(
+                t.status.value == "cleared" and bool(t.evidence)
+                and any(term in t.clearance_type.lower() for term in ("financial", "pgrc"))
+                for t in clearances
+            )
+        elif item.key == "vigilance_clearance":
+            complete = any(
+                t.status.value == "cleared" and bool(t.evidence)
+                and any(term in t.clearance_type.lower() for term in ("legal", "vigilance"))
+                for t in clearances
+            )
+        else:
+            doc_type = config.get("document_type")
+            complete = bool(doc_type and doc_type in document_types)
+        item_data = item.to_dict()
+        item_data["completed"] = complete
+        item_data["document_type"] = config.get("document_type")
+        completed_items.append(item_data)
+        if item.mandatory:
+            mandatory_count += 1
+            if complete:
+                completed_count += 1
+            else:
+                missing.append(item.key)
+    authority_document = {
+        "fdr_rpgf": ("approval_bureau_noc", "Approval Bureau NOC"),
+        "rtgs": ("council_sanction_order", "Council sanction order"),
+    }.get(release_request.review_path)
+    if authority_document:
+        key, label = authority_document
+        complete = key in document_types
+        completed_items.append({
+            "key": key,
+            "label": label,
+            "mandatory": True,
+            "condition": "Required for this final authority route",
+            "category": "final_authority",
+            "document_type": key,
+            "completed": complete,
+        })
+        mandatory_count += 1
+        if complete:
+            completed_count += 1
+        else:
+            missing.append(key)
+    return {
+        "passed": not missing,
+        "mandatory_count": mandatory_count,
+        "completed_count": completed_count,
+        "missing_items": missing,
+        "items": completed_items,
+    }
 
 
 async def get_current_user(authorization: str = Header(None)):
@@ -73,6 +163,8 @@ async def create_release_request(
     query = select(DepositCase).where(DepositCase.id == request.case_id).options(
         selectinload(DepositCase.institution),
         selectinload(DepositCase.release_requests),
+        selectinload(DepositCase.clearances),
+        selectinload(DepositCase.evidence),
     )
     result = await db.execute(query)
     case = result.scalar_one_or_none()
@@ -91,6 +183,11 @@ async def create_release_request(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Case must be CLEARED to request release (current: {case.status.value})"
         )
+
+    if not case.clearances or any(
+        task.status.value != "cleared" or not task.evidence for task in case.clearances
+    ):
+        raise HTTPException(status_code=400, detail="Complete all clearance tasks and record evidence before requesting release")
     
     pending_requests = [r for r in case.release_requests if r.status == "pending"]
     if pending_requests:
@@ -124,14 +221,18 @@ async def create_release_request(
         old_status, CaseStatus.RELEASE_REQUESTED,
         {"reason": f"Release requested: {request.request_type.value}", "request_id": release_request.id}
     )
+    review_status = _review_status(review_path)
+    await case_service._log_case_event(
+        case.id, "authority_route_selected", current_user.user_id,
+        CaseStatus.RELEASE_REQUESTED, review_status,
+        {"review_path": review_path, "request_type": request.request_type.value},
+    )
+    case.status = review_status
     
     await audit_service.log_event(
-        db,
-        actor_id=current_user.user_id,
-        action="release_requested",
-        resource_type="deposit_case",
-        resource_id=case.id,
-        details={"case_number": case.case_number, "request_type": request.request_type.value},
+        db=db, entity_type="deposit_case", entity_id=case.id,
+        actor_id=current_user.user_id, action=AuditAction.RELEASE_REQUESTED,
+        new_values={"case_number": case.case_number, "request_type": request.request_type.value, "review_path": review_path},
     )
     
     await db.flush()
@@ -141,11 +242,9 @@ async def create_release_request(
         "deposit_method": case.deposit_method.value,
         "request_type": request.request_type.value,
         "amount": float(case.amount),
-        "institution_type": case.institution.institution_type.value if case.institution else "unknown",
+        "institution_type": case.institution.institution_type if case.institution else "unknown",
     }
-    checklist = checklist_engine.evaluate_checklist(
-        {}, request.request_type.value, case.deposit_method.value, case_data
-    )
+    checklist = _evaluate_release_checklist(case, release_request)
     
     return ReleaseDetailResponse(
         id=release_request.id,
@@ -214,10 +313,15 @@ async def get_release_queue(
     ).options(
         selectinload(DepositCase.institution),
         selectinload(DepositCase.release_requests),
+        selectinload(DepositCase.clearances),
+        selectinload(DepositCase.evidence),
     )
     
     if review_path:
-        query = query.where(DepositCase.status == CaseStatus(review_path.upper().replace("_", "_")))
+        path_status = {"fdr_rpgf": CaseStatus.FDR_RPGF_REVIEW, "rtgs": CaseStatus.RTGS_REVIEW, "sd_refund": CaseStatus.SD_REFUND_REVIEW}.get(review_path)
+        if path_status is None:
+            raise HTTPException(status_code=400, detail="Unknown release route")
+        query = query.where(DepositCase.status == path_status)
     
     count_query = select(func.count()).select_from(query.subquery())
     total_result = await db.execute(count_query)
@@ -245,12 +349,7 @@ async def get_release_queue(
         if release_request:
             checklist_engine = get_checklist_engine()
             case_data = {"deposit_method": case.deposit_method.value, "amount": float(case.amount)}
-            eval_result = checklist_engine.evaluate_checklist(
-                release_request.checklist_data or {},
-                release_request.request_type.value,
-                case.deposit_method.value,
-                case_data,
-            )
+            eval_result = _evaluate_release_checklist(case, release_request)
             checklist_progress = {
                 "passed": eval_result["passed"],
                 "completed": eval_result["completed_count"],
@@ -282,6 +381,53 @@ async def get_release_queue(
     )
 
 
+@router.get("/my-requests", response_model=ReleaseQueueResponse)
+async def get_my_release_requests(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
+    status_filter: Optional[str] = Query(None, alias="status"),
+    current_user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List release requests belonging to the signed-in institution."""
+    if UserRole.INSTITUTION_REP not in current_user.roles:
+        raise HTTPException(status_code=403, detail="Only institution representatives can view their requests")
+    query = select(ReleaseRequest).join(DepositCase).where(
+        DepositCase.institution_id == current_user.institution_id
+    ).options(selectinload(ReleaseRequest.case).selectinload(DepositCase.institution))
+    if status_filter:
+        query = query.where(ReleaseRequest.status == status_filter)
+    count_query = select(func.count(ReleaseRequest.id)).select_from(ReleaseRequest).join(DepositCase).where(
+        DepositCase.institution_id == current_user.institution_id
+    )
+    if status_filter:
+        count_query = count_query.where(ReleaseRequest.status == status_filter)
+    total = (await db.execute(count_query)).scalar() or 0
+    requests = (await db.execute(
+        query.order_by(ReleaseRequest.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
+    )).scalars().all()
+    items = []
+    for release_request in requests:
+        case = release_request.case
+        items.append(ReleaseQueueItem(
+            case_id=case.id,
+            case_number=case.case_number,
+            institution_name=case.institution.name if case.institution else "Unknown",
+            deposit_type=case.deposit_type.value,
+            deposit_method=case.deposit_method.value,
+            amount=float(case.amount),
+            status=case.status,
+            review_path=release_request.review_path or "",
+            request_type=release_request.request_type,
+            requested_by=release_request.created_by,
+            requested_at=release_request.created_at,
+            deadline_days=0,
+            deadline_at=None,
+            checklist_progress={},
+        ))
+    return ReleaseQueueResponse(items=items, total=total, page=page, page_size=page_size)
+
+
 # More endpoints will be added
 
 
@@ -301,6 +447,8 @@ async def get_release_case_detail(
     query = select(DepositCase).where(DepositCase.id == case_id).options(
         selectinload(DepositCase.institution),
         selectinload(DepositCase.release_requests),
+        selectinload(DepositCase.clearances),
+        selectinload(DepositCase.evidence),
     )
     result = await db.execute(query)
     case = result.scalar_one_or_none()
@@ -314,12 +462,7 @@ async def get_release_case_detail(
     
     checklist_engine = get_checklist_engine()
     case_data = {"deposit_method": case.deposit_method.value, "amount": float(case.amount)}
-    checklist = checklist_engine.evaluate_checklist(
-        release_request.checklist_data or {},
-        release_request.request_type.value,
-        case.deposit_method.value,
-        case_data,
-    )
+    checklist = _evaluate_release_checklist(case, release_request)
     
     return ReleaseDetailResponse(
         id=release_request.id,
@@ -376,6 +519,8 @@ async def decide_release(
     
     query = select(DepositCase).where(DepositCase.id == case_id).options(
         selectinload(DepositCase.release_requests),
+        selectinload(DepositCase.clearances),
+        selectinload(DepositCase.evidence),
     )
     result = await db.execute(query)
     case = result.scalar_one_or_none()
@@ -386,6 +531,10 @@ async def decide_release(
     release_request = max(case.release_requests, key=lambda r: r.created_at) if case.release_requests else None
     if not release_request:
         raise HTTPException(status_code=404, detail="No release request found for this case")
+
+    expected_status = _review_status(release_request.review_path or "")
+    if case.status != expected_status:
+        raise HTTPException(status_code=409, detail="Case is not in the final review stage for this route")
     
     if release_request.status != "pending":
         raise HTTPException(
@@ -396,16 +545,22 @@ async def decide_release(
     if request.final_decision == ReleaseDecision.RELEASE:
         checklist_engine = get_checklist_engine()
         case_data = {"deposit_method": case.deposit_method.value, "amount": float(case.amount)}
-        checklist_eval = checklist_engine.evaluate_checklist(
-            request.checklist_data or {},
-            release_request.request_type.value,
-            case.deposit_method.value,
-            case_data,
-        )
+        checklist_eval = _evaluate_release_checklist(case, release_request)
         if not checklist_eval["passed"]:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Checklist not complete. Missing: {', '.join(checklist_eval['missing_items'])}"
+            )
+        uncleared = [task.clearance_type for task in case.clearances if task.status.value != "cleared" or not task.evidence]
+        if not case.clearances or uncleared:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Required clearances are incomplete or lack evidence: {', '.join(uncleared) if uncleared else 'no clearance tasks'}",
+            )
+        if not checklist_eval["passed"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Missing required evidence or clearance: {', '.join(checklist_eval['missing_items'])}",
             )
     
     release_request.final_decision = request.final_decision
@@ -414,6 +569,7 @@ async def decide_release(
     release_request.decided_by = current_user.user_id
     release_request.decided_at = func.now()
     release_request.status = "decided"
+    decision_checklist = _evaluate_release_checklist(case, release_request)
     
     old_status = case.status
     message = ""
@@ -424,7 +580,7 @@ async def decide_release(
     elif request.final_decision == ReleaseDecision.REJECT:
         case.status = CaseStatus.CLEARED
         message = "Release rejected"
-    elif request.final_decision == ReleaseDecision.RETURN:
+    elif request.final_decision == ReleaseDecision.RETURN_FOR_CORRECTION:
         case.status = CaseStatus.CLEARED
         message = "Release returned for clarification"
     
@@ -435,12 +591,9 @@ async def decide_release(
     )
     
     await audit_service.log_event(
-        db,
-        actor_id=current_user.user_id,
-        action="release_decided",
-        resource_type="deposit_case",
-        resource_id=case.id,
-        details={
+        db=db, entity_type="deposit_case", entity_id=case.id,
+        actor_id=current_user.user_id, action=AuditAction.RELEASE_DECIDED,
+        new_values={
             "case_number": case.case_number,
             "decision": request.final_decision.value,
             "reasoning": request.decision_reasoning,
@@ -472,7 +625,15 @@ async def decide_release(
             deposit_method=case.deposit_method.value,
             amount=float(case.amount),
             case_status=case.status,
-            checklist=None,
+            checklist=ReleaseChecklistResponse(
+                request_type=release_request.request_type,
+                deposit_method=case.deposit_method.value,
+                items=[ReleaseChecklistItem(**item) for item in decision_checklist["items"]],
+                passed=decision_checklist["passed"],
+                mandatory_count=decision_checklist["mandatory_count"],
+                completed_count=decision_checklist["completed_count"],
+                missing_items=decision_checklist["missing_items"],
+            ),
         ),
         case_status=case.status,
         message=message,
@@ -487,33 +648,32 @@ async def get_release_checklist(
     db: AsyncSession = Depends(get_db),
 ):
     """Get release checklist for a case."""
-    if UserRole.COMPETENT_AUTHORITY not in current_user.roles:
+    if not ({UserRole.COMPETENT_AUTHORITY, UserRole.INSTITUTION_REP} & set(current_user.roles)):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only competent authority can access release checklist"
+            detail="Release checklist access is restricted"
         )
     
     query = select(DepositCase).where(DepositCase.id == case_id).options(
         selectinload(DepositCase.release_requests),
+        selectinload(DepositCase.institution),
+        selectinload(DepositCase.clearances),
+        selectinload(DepositCase.evidence),
     )
     result = await db.execute(query)
     case = result.scalar_one_or_none()
     
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
+
+    if UserRole.INSTITUTION_REP in current_user.roles and case.institution_id != current_user.institution_id:
+        raise HTTPException(status_code=403, detail="Not authorized for this case")
     
     release_request = max(case.release_requests, key=lambda r: r.created_at) if case.release_requests else None
     if not release_request:
         raise HTTPException(status_code=404, detail="No release request found for this case")
     
-    checklist_engine = get_checklist_engine()
-    case_data = {"deposit_method": case.deposit_method.value, "amount": float(case.amount)}
-    checklist = checklist_engine.evaluate_checklist(
-        release_request.checklist_data or {},
-        release_request.request_type.value,
-        case.deposit_method.value,
-        case_data,
-    )
+    checklist = _evaluate_release_checklist(case, release_request)
     
     return ReleaseChecklistResponse(
         request_type=release_request.request_type,

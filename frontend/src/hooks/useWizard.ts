@@ -43,22 +43,22 @@ interface UseWizardReturn {
 
 function getStepNumber(state: WizardStateResponse['current_step']): number {
   switch (state) {
-    case 'STEP_1': return 1;
-    case 'STEP_2': return 2;
-    case 'STEP_3': return 3;
-    case 'STEP_4': return 4;
-    case 'COMPLETED': return 4;
+    case 'step_1': return 1;
+    case 'step_2': return 2;
+    case 'step_3': return 3;
+    case 'step_4': return 4;
+    case 'completed': return 4;
     default: return 1;
   }
 }
 
 function getStepState(step: number): WizardStateResponse['current_step'] {
   switch (step) {
-    case 1: return 'STEP_1';
-    case 2: return 'STEP_2';
-    case 3: return 'STEP_3';
-    case 4: return 'STEP_4';
-    default: return 'STEP_1';
+    case 1: return 'step_1';
+    case 2: return 'step_2';
+    case 3: return 'step_3';
+    case 4: return 'step_4';
+    default: return 'step_1';
   }
 }
 
@@ -213,7 +213,12 @@ export function useWizard(): UseWizardReturn {
     try {
       const response = await wizardApi.submitStep4(caseId);
       if (response.success) {
-        await loadWizardState(caseId);
+        setWizardState((current) => current ? {
+          ...current,
+          current_step: 'completed',
+          step3_completed: true,
+          tracking_ref: response.tracking_ref ?? current.tracking_ref,
+        } : current);
         toast.success('Case submitted successfully!');
         clearStorage();
       } else {
@@ -228,7 +233,7 @@ export function useWizard(): UseWizardReturn {
     } finally {
       setIsLoading(false);
     }
-  }, [caseId, loadWizardState]);
+  }, [caseId]);
 
   const updateFormData = useCallback(<K extends keyof StepFormData>(step: K, data: StepFormData[K]) => {
     setFormData(prev => ({ ...prev, [step]: data }));

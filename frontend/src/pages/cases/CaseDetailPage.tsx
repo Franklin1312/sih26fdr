@@ -8,7 +8,11 @@ import { ClarificationThread } from '../../components/cases/ClarificationThread'
 import { ClearanceTasks } from '../../components/cases/ClearanceTasks';
 import { DocumentViewer } from '../../components/cases/DocumentViewer';
 import { casesApi } from '../../api/cases';
+import { releaseApi } from '../../api/release';
+import { useAuth } from '../../auth/useAuth';
+import { toast } from 'sonner';
 import type { DepositCaseDetail, DepositEvidenceResponse } from '../../types/case';
+import type { ReleaseChecklistResponse } from '../../types/release';
 import { formatDate } from '../../utils/helpers';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
@@ -22,9 +26,12 @@ export function CaseDetailPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'documents' | 'timeline' | 'clarifications' | 'clearances'>('overview');
   const [viewerDoc, setViewerDoc] = useState<DepositEvidenceResponse | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
+  const [releaseChecklist, setReleaseChecklist] = useState<ReleaseChecklistResponse | null>(null);
+  const [uploadingType, setUploadingType] = useState<string | null>(null);
 
-  const currentUserRole = 'institution_rep';
-  const currentUserId = 'current-user-id';
+  const { user } = useAuth();
+  const currentUserRole = user?.role ?? 'institution_rep';
+  const currentUserId = user?.user_id ?? '';
 
   useEffect(() => {
     if (!id) return;
@@ -34,6 +41,11 @@ export function CaseDetailPage() {
       try {
         const data = await casesApi.getById(id);
         setCaseData(data);
+        if (data.status.startsWith('fdr_rpgf_review') || data.status.startsWith('rtgs_review') || data.status.startsWith('sd_refund_review') || data.status === 'release_requested') {
+          try { setReleaseChecklist(await releaseApi.getChecklist(id)); } catch { setReleaseChecklist(null); }
+        } else {
+          setReleaseChecklist(null);
+        }
       } catch (err: any) {
         setError(err.message || 'Failed to load case details');
       } finally {
@@ -63,7 +75,42 @@ export function CaseDetailPage() {
   };
 
   const handleEdit = () => {
-    navigate(`/wizard?caseId=${id}`);
+    navigate(`/wizard/${id}/step1`);
+  };
+
+  const handleRequestRelease = async () => {
+    if (!caseData) return;
+    try {
+      const response = await releaseApi.requestRelease({
+        case_id: caseData.id,
+        request_type: caseData.deposit_method === 'security_deposit_refund' ? 'refund' : 'maturity',
+      });
+      setReleaseChecklist(response.checklist);
+      toast.success('Release request submitted to its configured authority route.');
+      const refreshed = await casesApi.getById(caseData.id);
+      setCaseData(refreshed);
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : 'Could not submit the release request');
+    }
+  };
+
+  const handleChecklistUpload = async (documentType: string, file?: File) => {
+    if (!file || !caseData) return;
+    setUploadingType(documentType);
+    try {
+      await casesApi.uploadDocument(caseData.id, file, documentType);
+      const [refreshed, checklist] = await Promise.all([
+        casesApi.getById(caseData.id),
+        releaseApi.getChecklist(caseData.id),
+      ]);
+      setCaseData(refreshed);
+      setReleaseChecklist(checklist);
+      toast.success('Document uploaded');
+    } catch (cause) {
+      toast.error(cause instanceof Error ? cause.message : 'Could not upload document');
+    } finally {
+      setUploadingType(null);
+    }
   };
 
   if (loading) {
@@ -92,7 +139,7 @@ export function CaseDetailPage() {
 
   return (
     <div className="space-y-6">
-      <CaseHeader caseData={caseData} onEdit={handleEdit} currentUserRole={currentUserRole} />
+      <CaseHeader caseData={caseData} onEdit={handleEdit} onRequestRelease={handleRequestRelease} currentUserRole={currentUserRole} />
       <Tabs.Root defaultValue={activeTab} value={activeTab} onValueChange={(value) => setActiveTab(value as typeof activeTab)}>
         <Tabs.List className="bg-white border border-gray-200 rounded-lg p-1 w-fit">
           <Tabs.Trigger value="overview">Overview</Tabs.Trigger>
@@ -163,6 +210,20 @@ export function CaseDetailPage() {
 
         <Tabs.Content value="documents">
           <div className="bg-white border border-gray-200 rounded-xl p-6">
+            {releaseChecklist && !releaseChecklist.passed && (
+              <section className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                <h3 className="font-semibold text-gray-900">Release documents needed</h3>
+                <div className="mt-3 space-y-3">
+                  {releaseChecklist.items.filter((item) => item.mandatory && !item.completed && item.document_type).map((item) => (
+                    <label key={item.key} className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                      <span>{item.label}</span>
+                      <input type="file" accept="application/pdf,image/*" disabled={uploadingType === item.document_type}
+                        onChange={(event) => handleChecklistUpload(item.document_type!, event.target.files?.[0])} />
+                    </label>
+                  ))}
+                </div>
+              </section>
+            )}
             {caseData.documents?.length ? (
               <div className="space-y-4">
                 {caseData.documents.map((doc) => (

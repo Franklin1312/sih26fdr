@@ -12,7 +12,7 @@ from backend.services.auth import validate_startup_config as validate_auth_confi
 from backend.services.audit_service import audit_service
 from backend.services.access_control import access_control
 from backend.services.alert_scheduler import get_alert_scheduler
-from backend.routes import institutions, users, cases, evidence, wizard, clarification, scrutiny, clearance, release
+from backend.routes import institutions, users, cases, evidence, wizard, clarification, scrutiny, clearance, release, auth
 
 settings = get_settings()
 
@@ -147,6 +147,7 @@ async def create_demo_data():
                 code="DEC001",
                 contact_email="principal@dec.edu.in",
                 address="123 Demo Street, Demo City",
+                institution_type="engineering",
                 is_active=True,
             )
             db.add(inst)
@@ -188,11 +189,12 @@ async def root():
 
 
 # Include route modules
+app.include_router(auth.router, prefix="/api/v1")
 app.include_router(institutions.router, prefix="/api/v1/institutions", tags=["institutions"])
-app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
+app.include_router(users.router, prefix="/api/v1", tags=["users"])
 app.include_router(cases.router, prefix="/api/v1/cases", tags=["cases"])
-app.include_router(evidence.router, prefix="/api/v1/cases", tags=["evidence"])
-app.include_router(wizard.router, prefix="/api/v1/wizard", tags=["wizard"])
+app.include_router(evidence.router, prefix="/api/v1/cases/evidence", tags=["evidence"])
+app.include_router(wizard.router, prefix="/api/v1", tags=["wizard"])
 app.include_router(clarification.router, prefix="/api/v1", tags=["clarifications"])
 app.include_router(scrutiny.router, prefix="/api/v1", tags=["scrutiny"])
 app.include_router(clearance.router, prefix="/api/v1", tags=["clearance"])

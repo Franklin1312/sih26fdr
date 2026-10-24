@@ -16,7 +16,7 @@ import type {
 
 export const wizardApi = {
   async create(data: WizardCreateRequest): Promise<WizardCreateResponse> {
-    const response = await apiClient.axios.post('/wizard', data)
+    const response = await apiClient.axios.post('/wizard/create', data)
     return response.data
   },
 
@@ -41,17 +41,17 @@ export const wizardApi = {
   },
 
   async submitStep4(caseId: string): Promise<WizardStep4Response> {
-    const response = await apiClient.axios.post(`/wizard/${caseId}/step4`)
+    const response = await apiClient.axios.post(`/wizard/${caseId}/submit`)
     return response.data
   },
 
   async submitClarification(caseId: string, data: ClarificationRequestCreate): Promise<ClarificationRequestResponse> {
-    const response = await apiClient.axios.post(`/wizard/${caseId}/clarifications`, data)
+    const response = await apiClient.axios.post('/clarifications', { ...data, case_id: caseId })
     return response.data
   },
 
   async getClarifications(caseId: string): Promise<ClarificationRequestResponse[]> {
-    const response = await apiClient.axios.get(`/wizard/${caseId}/clarifications`)
-    return response.data
+    const response = await apiClient.axios.get(`/clarifications/case/${caseId}`)
+    return response.data.items
   },
 }

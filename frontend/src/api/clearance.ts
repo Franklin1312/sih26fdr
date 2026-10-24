@@ -21,12 +21,12 @@ export const clearanceApi = {
   },
 
   async getTaskDetail(taskId: string): Promise<ClearanceTaskDetail> {
-    const response = await apiClient.axios.get(`/clearance/tasks/${taskId}`)
+    const response = await apiClient.axios.get(`/clearance/cases/${taskId}`)
     return response.data
   },
 
   async claimTask(taskId: string): Promise<ClearanceTaskResponse> {
-    const response = await apiClient.axios.post(`/clearance/tasks/${taskId}/claim`)
+    const response = await apiClient.axios.post(`/clearance/cases/${taskId}/claim`)
     return response.data
   },
 
@@ -46,7 +46,7 @@ export const clearanceApi = {
     clearance_type?: string
     status?: string
   } = {}): Promise<ClearanceQueueResponse> {
-    const response = await apiClient.axios.get('/clearance/my-tasks', { params })
+    const response = await apiClient.axios.get('/clearance/queue', { params })
     return response.data
   },
 }

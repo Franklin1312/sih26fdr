@@ -65,9 +65,13 @@ class CaseService:
 
     async def create_case(self, case_data: DepositCaseCreate, user: UserContext) -> DepositCase:
         """Create a new deposit case in DRAFT status."""
+        if not user.has_permission("case:create"):
+            raise PermissionError("Cannot create deposit cases")
         institution = await self.db.get(Institution, case_data.institution_id)
         if not institution:
             raise ValueError("Institution not found")
+        if UserRole.INSTITUTION_REP in user.roles and user.institution_id != case_data.institution_id:
+            raise PermissionError("Cannot create a case for another institution")
         
         if user.institution_id != case_data.institution_id and not access_control.require_permission(user, "case:create"):
             raise PermissionError("Cannot create case for another institution")
@@ -82,11 +86,13 @@ class CaseService:
             amount=case_data.amount,
             currency=case_data.currency,
             instrument_number=case_data.instrument_number,
+            instrument_date=case_data.instrument_date,
             issuing_bank=case_data.issuing_bank,
             maturity_date=case_data.maturity_date,
+            term_end_date=case_data.term_end_date,
             aicte_clause_ref=case_data.aicte_clause_ref,
             status=CaseStatus.DRAFT,
-            is_demo=True,
+            is_demo=False,
         )
         
         self.db.add(case)
@@ -115,6 +121,9 @@ class CaseService:
         
         if not access_control.can_access_case(user, case.institution_id, case.assigned_officer_id, case.status.value):
             raise PermissionError("Cannot access this case")
+
+        if not user.has_permission("case:update_draft"):
+            raise PermissionError("Cannot update deposit cases")
         
         if case.status != CaseStatus.DRAFT:
             raise ValueError("Can only update cases in DRAFT status")
@@ -124,8 +133,10 @@ class CaseService:
             "deposit_method": case.deposit_method.value,
             "amount": float(case.amount),
             "instrument_number": case.instrument_number,
+            "instrument_date": case.instrument_date.isoformat() if case.instrument_date else None,
             "issuing_bank": case.issuing_bank,
             "maturity_date": case.maturity_date.isoformat() if case.maturity_date else None,
+            "term_end_date": case.term_end_date.isoformat() if case.term_end_date else None,
             "aicte_clause_ref": case.aicte_clause_ref,
         }
         
@@ -140,8 +151,10 @@ class CaseService:
             "deposit_method": case.deposit_method.value,
             "amount": float(case.amount),
             "instrument_number": case.instrument_number,
+            "instrument_date": case.instrument_date.isoformat() if case.instrument_date else None,
             "issuing_bank": case.issuing_bank,
             "maturity_date": case.maturity_date.isoformat() if case.maturity_date else None,
+            "term_end_date": case.term_end_date.isoformat() if case.term_end_date else None,
             "aicte_clause_ref": case.aicte_clause_ref,
         }
         
@@ -234,6 +247,33 @@ class CaseService:
 
     async def submit_case(self, case_id: str, user: UserContext) -> DepositCase:
         """Submit a case for review (DRAFT -> SUBMITTED)."""
+        case = await self.get_case(case_id, user)
+        confirmation = await self.db.execute(
+            select(CaseEvent.id).where(
+                CaseEvent.case_id == case_id,
+                CaseEvent.event_type == "wizard_review_confirmed",
+                CaseEvent.details["confirmed"].as_boolean().is_(True),
+                CaseEvent.details["terms_accepted"].as_boolean().is_(True),
+            ).limit(1)
+        )
+        if confirmation.scalar_one_or_none() is None:
+            raise ValueError("Complete the review and accept the terms before submitting")
+        evidence_result = await self.db.execute(
+            select(DepositEvidence).where(
+                DepositEvidence.case_id == case_id,
+                DepositEvidence.is_deleted.is_(False),
+                DepositEvidence.replaced_by_id.is_(None),
+            )
+        )
+        evidence = evidence_result.scalars().all()
+        from backend.services.validation import validation_engine
+        validation = validation_engine.validate_case_completeness(
+            case, [item.document_type for item in evidence]
+        )
+        if not validation.is_valid:
+            raise ValueError(
+                "Missing mandatory documents: " + ", ".join(validation.missing_mandatory)
+            )
         return await self.transition_case_status(
             case_id,
             DepositCaseStatusUpdate(new_status=CaseStatus.SUBMITTED, reason="Submitted for review"),
@@ -256,6 +296,14 @@ class CaseService:
         
         if not can_transition(case.status, status_update.new_status):
             raise ValueError(f"Invalid transition from {case.status.value} to {status_update.new_status.value}")
+
+        if status_update.new_status == CaseStatus.RELEASE_REQUESTED:
+            raise ValueError("Use the release request workflow to select and validate an authority route")
+
+        if status_update.new_status == CaseStatus.RELEASED:
+            raise PermissionError("Cases can only be released through the guarded release decision route")
+        if status_update.new_status == CaseStatus.CLEARED:
+            raise PermissionError("Clearance completion is the only route that can mark a case cleared")
         
         if not access_control.can_transition_case_status(
             user, case.status.value, status_update.new_status.value, case.institution_id
@@ -366,37 +414,30 @@ class CaseService:
             pending_result = await self.db.execute(pending_query)
             pending_my_action = pending_result.scalar() or 0
         
-        overdue_query = select(func.count()).where(
-            and_(
-                DepositCase.status == CaseStatus.CLEARANCE_QUEUE,
-                DepositCase.updated_at < datetime.now(timezone.utc) - timedelta(days=7),
-            )
+        now = datetime.now(timezone.utc)
+        scoped_cases = base_query.subquery()
+        overdue_query = select(func.count(LifecycleDate.id)).join(
+            scoped_cases, LifecycleDate.case_id == scoped_cases.c.id
+        ).where(
+            LifecycleDate.date_type == LifecycleDateType.ADMIN_DEADLINE,
+            LifecycleDate.date_value < now,
+            LifecycleDate.alert_sent.is_(False),
         )
-        if UserRole.CLEARANCE_OFFICER in user.roles:
-            overdue_query = overdue_query.where(DepositCase.assigned_officer_id == user.user_id)
-        elif UserRole.INSTITUTION_REP in user.roles:
-            overdue_query = overdue_query.where(DepositCase.institution_id == user.institution_id)
-        
         overdue_result = await self.db.execute(overdue_query)
         overdue_clearances = overdue_result.scalar() or 0
-        
-        maturity_query = select(func.count()).select_from(
-            select(LifecycleDate).where(
-                and_(
-                    LifecycleDate.date_type == LifecycleDateType.FDR_MATURITY,
-                    LifecycleDate.date_value <= datetime.now(timezone.utc) + timedelta(days=30),
-                    LifecycleDate.date_value >= datetime.now(timezone.utc),
-                    LifecycleDate.alert_sent == False,
-                )
-            ).join(DepositCase).subquery()
+
+        maturity_query = select(func.count(LifecycleDate.id)).join(
+            scoped_cases, LifecycleDate.case_id == scoped_cases.c.id
+        ).where(
+            LifecycleDate.date_type == LifecycleDateType.FDR_MATURITY,
+            LifecycleDate.date_value <= now + timedelta(days=30),
+            LifecycleDate.date_value >= now,
         )
-        if UserRole.INSTITUTION_REP in user.roles:
-            maturity_query = maturity_query.where(DepositCase.institution_id == user.institution_id)
-        elif UserRole.SCRUTINY_OFFICER in user.roles or UserRole.CLEARANCE_OFFICER in user.roles:
-            maturity_query = maturity_query.where(DepositCase.assigned_officer_id == user.user_id)
-        
         maturity_result = await self.db.execute(maturity_query)
         upcoming_maturities = maturity_result.scalar() or 0
+
+        amount_result = await self.db.execute(select(func.coalesce(func.sum(scoped_cases.c.amount), 0)))
+        total_amount = float(amount_result.scalar() or 0)
         
         return DepositCaseDashboardStats(
             total=total,
@@ -406,6 +447,9 @@ class CaseService:
             pending_my_action=pending_my_action,
             overdue_clearances=overdue_clearances,
             upcoming_maturities=upcoming_maturities,
+            total_amount=total_amount,
+            overdue_count=overdue_clearances,
+            upcoming_maturity_count=upcoming_maturities,
         )
 
     async def _generate_tracking_ref(self, deposit_type: DepositType) -> str:
@@ -434,15 +478,15 @@ class CaseService:
                 description="FDR maturity date - initiate release process",
             ))
         
-        aicte_term_end = datetime.now(timezone.utc) + timedelta(days=5*365)
-        dates_to_create.append(LifecycleDate(
-            case_id=case.id,
-            date_type=LifecycleDateType.AICTE_TERM_END,
-            date_value=aicte_term_end,
-            alert_lead_days=90,
-            description="AICTE approval term end - review deposit requirement",
-        ))
-        
+        if case.term_end_date:
+            dates_to_create.append(LifecycleDate(
+                case_id=case.id,
+                date_type=LifecycleDateType.AICTE_TERM_END,
+                date_value=case.term_end_date,
+                alert_lead_days=90,
+                description="Security-deposit term end date recorded from case evidence",
+            ))
+
         if case.deposit_type == DepositType.FDR and case.maturity_date:
             renewal_due = case.maturity_date - timedelta(days=365)
             if renewal_due > datetime.now(timezone.utc):

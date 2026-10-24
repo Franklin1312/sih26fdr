@@ -54,13 +54,13 @@ export const casesApi = {
 
   // Update case status
   async updateStatus(id: string, data: DepositCaseStatusUpdate): Promise<DepositCaseResponse> {
-    const response = await apiClient.axios.patch(`/cases/${id}/status`, data)
+    const response = await apiClient.axios.post(`/cases/${id}/transition`, data)
     return response.data
   },
 
   // Get dashboard statistics
   async getDashboardStats(): Promise<DashboardStats> {
-    const response = await apiClient.axios.get('/cases/stats/dashboard')
+    const response = await apiClient.axios.get('/cases/dashboard/stats')
     return response.data
   },
 
@@ -80,7 +80,7 @@ export const casesApi = {
     }
 
     const response = await apiClient.axios.post(
-      '/cases',
+      '/cases/evidence',
       formData,
       { headers: { 'Content-Type': 'multipart/form-data' } }
     )
@@ -89,22 +89,22 @@ export const casesApi = {
 
   // List documents for a case
   async listDocuments(caseId: string, params: PaginationParams = {}): Promise<DepositEvidenceListResponse> {
-    const response = await apiClient.axios.get('/cases', { params: { ...params, case_id: caseId } })
+    const response = await apiClient.axios.get('/cases/evidence', { params: { ...params, case_id: caseId } })
     return response.data
   },
 
   // Get document by ID
   async getDocument(documentId: string): Promise<DepositEvidenceResponse> {
-    const response = await apiClient.axios.get(`/cases/${documentId}`)
+    const response = await apiClient.axios.get(`/cases/evidence/${documentId}`)
     return response.data
   },
 
   // Download document
   async downloadDocument(documentId: string): Promise<Blob> {
-    const { data } = await apiClient.axios.get(`/cases/${documentId}/download`)
+    const { data } = await apiClient.axios.get(`/cases/evidence/${documentId}/download`)
     const formData = new FormData()
     formData.append('token', data.download_token)
-    const response = await apiClient.axios.post(`/cases/${documentId}/download`, formData, {
+    const response = await apiClient.axios.post(`/cases/evidence/${documentId}/download`, formData, {
       responseType: 'blob',
     })
     return response.data
@@ -112,6 +112,6 @@ export const casesApi = {
 
   // Delete document
   async deleteDocument(documentId: string): Promise<void> {
-    await apiClient.axios.delete(`/cases/${documentId}`)
+    await apiClient.axios.delete(`/cases/evidence/${documentId}`)
   },
 }

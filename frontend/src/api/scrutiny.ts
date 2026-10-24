@@ -28,7 +28,7 @@ export const scrutinyApi = {
   },
 
   async transitionStatus(caseId: string, data: TransitionRequest): Promise<ScrutinyCaseDetail> {
-    const response = await apiClient.axios.post(`/scrutiny/cases/${caseId}/transition`, data)
+    const response = await apiClient.axios.post(`/scrutiny/cases/${caseId}/review`, data)
     return response.data
   },
 
@@ -37,12 +37,12 @@ export const scrutinyApi = {
     reason: string
     details?: string
   }>): Promise<{ success: boolean }> {
-    const response = await apiClient.axios.post(`/scrutiny/cases/${caseId}/clarification`, { items })
+    const response = await apiClient.axios.post(`/scrutiny/cases/${caseId}/clarifications`, { case_id: caseId, question: items.map((item) => `${item.document_type}: ${item.reason}${item.details ? ` — ${item.details}` : ''}`).join('\n') })
     return response.data
   },
 
   async assignCase(caseId: string): Promise<ScrutinyCaseDetail> {
-    const response = await apiClient.axios.post(`/scrutiny/cases/${caseId}/assign`)
+    const response = await apiClient.axios.post(`/scrutiny/cases/${caseId}/claim`)
     return response.data
   },
 

@@ -32,7 +32,8 @@ class DepositEvidenceResponse(DepositEvidenceBase, IDMixin, TimestampMixin):
     uploaded_by: str
     file_path: str
     version: int
-    file_hash: str
+    file_hash: Optional[str] = None
+    is_deleted: bool = False
     ocr_text: Optional[str] = None
     ocr_confidence: Optional[float] = None
     validation_flags: Optional[Dict[str, Any]] = None

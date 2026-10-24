@@ -8,7 +8,7 @@ import { Step4Success } from '../../components/wizard/Step4Success';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
 import { ArrowLeft } from 'lucide-react';
-import { toast } from 'sonner';
+import { useAuth } from '../../auth/useAuth';
 
 interface WizardPageProps {
   isNew?: boolean;
@@ -18,6 +18,7 @@ export function WizardPage({ isNew = false }: WizardPageProps) {
   const { caseId } = useParams<{ caseId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   
   const {
     wizardState,
@@ -28,6 +29,8 @@ export function WizardPage({ isNew = false }: WizardPageProps) {
     saveStep1,
     saveStep2,
     saveStep3,
+    submitStep4,
+    createCase,
     goToStep,
     canProceedToStep,
     clearStorage,
@@ -52,7 +55,8 @@ export function WizardPage({ isNew = false }: WizardPageProps) {
   };
 
   const handleStep3Submit = async (data: any) => {
-    await saveStep3(data);
+    const result = await saveStep3(data);
+    if (result?.success) await submitStep4();
   };
 
   const handleBack = () => {
@@ -119,9 +123,9 @@ export function WizardPage({ isNew = false }: WizardPageProps) {
         return (
           <Step4Success
             response={wizardState ? {
-              success: wizardState.current_step === 'COMPLETED',
+              success: wizardState.current_step === 'completed',
               case_id: wizardState.case_id,
-              tracking_ref: '',
+              tracking_ref: wizardState.tracking_ref ?? '',
               status: 'submitted',
             } : undefined}
             onNewCase={handleNewCase}
@@ -143,35 +147,19 @@ export function WizardPage({ isNew = false }: WizardPageProps) {
             Back to Dashboard
           </Button>
           <h1 className="text-2xl font-bold text-gray-900">Create New Deposit Case</h1>
-          <p className="text-gray-600 mt-1">Select an institution to start a new deposit case</p>
+          <p className="text-gray-600 mt-1">Start a deposit case for your authorized institution.</p>
         </div>
 
         <Card className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Select Institution</h3>
-          <p className="text-gray-600 mb-4">
-            Choose the institution for which you want to create a deposit case.
-          </p>
-          <div className="space-y-3">
-            {[
-              { id: 'inst-1', name: 'ABC Corporation Ltd.', type: 'Private' },
-              { id: 'inst-2', name: 'XYZ Industries Pvt. Ltd.', type: 'Private' },
-              { id: 'inst-3', name: 'Government Housing Board', type: 'Government' },
-            ].map((inst) => (
-              <Button
-                key={inst.id}
-                variant="outline"
-                className="w-full justify-start gap-4 p-4"
-                onClick={() => {
-                  toast.info(`Creating case for ${inst.name}...`);
-                }}
-              >
-                <div>
-                  <p className="font-medium text-gray-900">{inst.name}</p>
-                  <p className="text-sm text-gray-500">{inst.type} Institution</p>
-                </div>
-              </Button>
-            ))}
-          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Demo Engineering College</h3>
+          <p className="text-gray-600 mb-4">Synthetic demo institution · inst_1</p>
+          <Button
+            className="w-full"
+            disabled={isLoading}
+            onClick={() => createCase(user?.institution_id ?? 'inst_1')}
+          >
+            Create deposit case
+          </Button>
         </Card>
       </div>
     );

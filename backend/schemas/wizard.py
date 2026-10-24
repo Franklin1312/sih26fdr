@@ -17,8 +17,10 @@ class WizardStep1Request(BaseModel):
     amount: Decimal = Field(..., gt=0, max_digits=15, decimal_places=2)
     currency: str = Field(default="INR", min_length=3, max_length=3)
     instrument_number: str = Field(..., min_length=1, max_length=100)
+    instrument_date: Optional[datetime] = None
     issuing_bank: str = Field(..., min_length=1, max_length=255)
     maturity_date: Optional[datetime] = None
+    term_end_date: Optional[datetime] = None
     aicte_clause_ref: Optional[str] = Field(default=None, max_length=100)
 
     model_config = ConfigDict(from_attributes=True)
@@ -85,12 +87,21 @@ class WizardStateResponse(BaseModel):
     currency: str
     instrument_number: str
     issuing_bank: str
+    instrument_date: Optional[str] = None
     maturity_date: Optional[str] = None
+    term_end_date: Optional[str] = None
     aicte_clause_ref: Optional[str] = None
     uploaded_documents: List[Dict[str, Any]] = []
     required_documents: Dict[str, Any] = {}
     missing_mandatory: List[str] = []
     missing_conditional: List[str] = []
+    step1_completed: bool = False
+    step2_completed: bool = False
+    step3_completed: bool = False
+    can_submit: bool = False
+    step1_data: Optional[Dict[str, Any]] = None
+    step2_data: Optional[Dict[str, Any]] = None
+    step3_data: Optional[Dict[str, Any]] = None
 
 
 class WizardCreateRequest(BaseModel):

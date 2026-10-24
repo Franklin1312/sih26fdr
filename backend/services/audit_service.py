@@ -42,6 +42,10 @@ class AuditService:
                 self._checkpoint_key = Ed25519PrivateKey.generate()
         else:
             self._checkpoint_key = Ed25519PrivateKey.generate()
+            os.makedirs(os.path.dirname(key_path), exist_ok=True)
+            from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, NoEncryption
+            with open(key_path, "wb") as f:
+                f.write(self._checkpoint_key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()))
         logger.info("Audit service initialized")
 
     def _compute_hash(self, prev_hash: str, entity_type: str, entity_id: str, action: str, actor_id: str, old_values: Optional[dict], new_values: Optional[dict], timestamp: str) -> str:
@@ -66,6 +70,12 @@ class AuditService:
         timestamp = self._format_timestamp(timestamp_dt)
         hash_value = self._compute_hash(prev_hash, entity_type, entity_id, action.value, actor_id, old_values, new_values, timestamp)
         audit_log = AuditLog(id=str(uuid4()), entity_type=entity_type, entity_id=entity_id, action=action, actor_id=actor_id, old_values=old_values, new_values=new_values, timestamp=timestamp_dt, hash=hash_value, prev_hash=prev_hash, sequence=sequence)
+        if CHECKPOINT_INTERVAL > 0 and sequence % CHECKPOINT_INTERVAL == 0 and self._checkpoint_key:
+            audit_log.is_checkpoint = True
+            audit_log.checkpoint_signature = self._checkpoint_key.sign(hash_value.encode()).hex()
+            audit_log.checkpoint_key_id = hashlib.sha256(
+                self._checkpoint_key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
+            ).hexdigest()[:16]
         db.add(audit_log)
         await db.flush()
         return audit_log

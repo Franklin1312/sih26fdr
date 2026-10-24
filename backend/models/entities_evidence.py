@@ -36,6 +36,9 @@ class DepositEvidence(Base):
     file_size: Mapped[int] = mapped_column(Integer, nullable=False)
     mime_type: Mapped[str] = mapped_column(String(100), nullable=False)
     uploaded_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=False)
+    file_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # OCR and validation
     ocr_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
@@ -60,6 +63,10 @@ class DepositEvidence(Base):
 
     def __repr__(self) -> str:
         return f"<DepositEvidence(id={self.id}, case_id={self.case_id}, type={self.document_type})>"
+
+    @property
+    def file_name(self) -> str:
+        return self.original_filename
 
 
 class CaseEvent(Base):

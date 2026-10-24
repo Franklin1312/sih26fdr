@@ -101,6 +101,7 @@ class ReleaseChecklistItem(BaseModel):
     mandatory: bool
     condition: Optional[str] = None
     category: Optional[str] = None
+    document_type: Optional[str] = None
     completed: bool = False
 
 
@@ -128,6 +129,7 @@ class ReleaseDetailResponse(ReleaseRequestResponse):
 
 class ReleaseRequestCreateRequest(BaseModel):
     """Request to create a release request (Institution)."""
+    case_id: str
     request_type: ReleaseRequestType
     reason: Optional[str] = None
 

@@ -1,12 +1,13 @@
 export type WizardState =
-  | 'STEP_1'
-  | 'STEP_2'
-  | 'STEP_3'
-  | 'STEP_4'
-  | 'COMPLETED'
+  | 'step_1'
+  | 'step_2'
+  | 'step_3'
+  | 'step_4'
+  | 'completed'
 
 export interface WizardStateResponse {
   case_id: string
+  tracking_ref?: string | null
   current_step: WizardState
   step1_completed: boolean
   step2_completed: boolean

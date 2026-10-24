@@ -62,7 +62,8 @@ class ValidationEngine:
 
         if "institution_type" in condition and institution is not None:
             inst_type = condition.split("=")[-1].strip().strip('"')
-            return getattr(institution, 'institution_type', None) == inst_type
+            actual = getattr(institution, 'institution_type', None)
+            return getattr(actual, "value", actual) == inst_type
 
         return False
 

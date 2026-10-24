@@ -11,6 +11,7 @@ from uuid import uuid4
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import get_settings
@@ -40,6 +41,7 @@ from backend.models.enums import (
 )
 from backend.services.rule_engine import get_rule_engine
 from backend.services.audit_service import audit_service
+from backend.services.file_storage import get_file_storage
 from backend.services.auth import hash_password
 
 
@@ -68,10 +70,13 @@ async def seed_institutions(db: AsyncSession, rule_engine) -> list:
                 code=inst_data["code"],
                 contact_email=f"admin@{inst_data['email_domain']}",
                 address=inst_data.get("address", "Demo Address"),
+                institution_type=inst_data.get("type", "unknown"),
                 is_active=True,
             )
             db.add(inst)
             print(f"Created institution: {inst.name} ({inst.code})")
+        elif inst.institution_type == "unknown":
+            inst.institution_type = inst_data.get("type", "unknown")
         institutions.append(inst)
     await db.flush()
     return institutions
@@ -109,6 +114,13 @@ async def seed_cases(db: AsyncSession, rule_engine, users: list, institutions: l
     authority_users = [u for u in users if u.role == UserRole.COMPETENT_AUTHORITY]
 
     for scenario in rule_engine.get_demo_cases():
+        existing_result = await db.execute(
+            select(DepositCase).where(DepositCase.tracking_ref == scenario["case_number"])
+        )
+        existing_case = existing_result.scalar_one_or_none()
+        if existing_case:
+            cases.append(existing_case)
+            continue
         inst_id = scenario["institution_id"]
         creator = next((u for u in inst_reps if u.institution_id == inst_id), inst_reps[0] if inst_reps else None)
         if not creator:
@@ -120,8 +132,6 @@ async def seed_cases(db: AsyncSession, rule_engine, users: list, institutions: l
         maturity_date = None
         if scenario.get("maturity_date"):
             maturity_date = datetime.fromisoformat(scenario["maturity_date"]).replace(tzinfo=timezone.utc)
-        elif scenario.get("term_end_date"):
-            maturity_date = datetime.fromisoformat(scenario["term_end_date"]).replace(tzinfo=timezone.utc)
 
         case = DepositCase(
             id=str(uuid4()),
@@ -282,23 +292,58 @@ async def seed_evidence(db: AsyncSession, cases: list, users: list):
             continue
 
         rule_engine = get_rule_engine()
-        required_docs = rule_engine.get_document_requirements(case.deposit_type.value)
+        required_docs = list(rule_engine.get_document_requirements(case.deposit_type.value))
+        is_release_case = case.status in {
+            CaseStatus.FDR_RPGF_REVIEW, CaseStatus.RTGS_REVIEW,
+            CaseStatus.SD_REFUND_REVIEW, CaseStatus.RELEASED,
+        }
+        if is_release_case:
+            required_docs.extend(
+                item.get("document_type")
+                for item in rule_engine.get_release_checklist_items("maturity", case.deposit_method.value)
+                if item.get("document_type")
+            )
+            route_doc = {
+                DepositMethod.FDR_RPGF: "approval_bureau_noc",
+                DepositMethod.RTGS: "council_sanction_order",
+            }.get(case.deposit_method)
+            if route_doc:
+                required_docs.append(route_doc)
+        required_docs = sorted(set(required_docs))
 
         for doc_type in required_docs:
+            existing_result = await db.execute(
+                select(DepositEvidence.id).where(
+                    DepositEvidence.case_id == case.id,
+                    DepositEvidence.document_type == doc_type,
+                    DepositEvidence.is_deleted.is_(False),
+                ).limit(1)
+            )
+            if existing_result.scalar_one_or_none():
+                continue
+            file_meta = await get_file_storage().upload_file(
+                case_id=case.id,
+                file_content=get_file_storage().create_demo_pdf(doc_type.replace("_", " ").title(), case.tracking_ref),
+                original_filename=f"DEMO_{doc_type}_{case.tracking_ref}.pdf",
+                mime_type="application/pdf",
+                document_type=doc_type,
+            )
             evidence = DepositEvidence(
                 id=str(uuid4()),
                 case_id=case.id,
                 document_type=doc_type,
-                file_path=f"/data/uploads/demo/{case.id}/{doc_type}.pdf",
+                file_path=file_meta["relative_path"],
                 original_filename=f"DEMO_{doc_type}_{case.tracking_ref}.pdf",
-                file_size=1024 * 100,
+                file_size=file_meta["file_size"],
                 mime_type="application/pdf",
                 uploaded_by=creator.id,
-                ocr_text=f"DEMO OCR TEXT FOR {doc_type.upper()} - This is synthetic demo data",
-                ocr_confidence=0.95,
-                validation_flags={"demo": True, "watermarked": True},
-                extracted_data={"demo": True},
+                file_hash=file_meta["file_hash"],
+                ocr_text=file_meta.get("ocr_text"),
+                ocr_confidence=file_meta.get("ocr_confidence"),
+                validation_flags=file_meta.get("validation_flags"),
+                extracted_data=file_meta.get("extracted_data"),
                 version=1,
+                is_demo=True,
             )
             db.add(evidence)
 
@@ -420,10 +465,6 @@ async def main():
 
         print("\n--- Creating Evidence ---")
         await seed_evidence(db, cases, users)
-
-        print("\n--- Advancing Workflow (First Case Only) ---")
-        if cases:
-            await advance_case_workflow(db, cases[0], users, rule_engine)
 
         print("\n" + "=" * 60)
         print("Demo data seeding complete!")

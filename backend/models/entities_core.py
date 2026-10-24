@@ -30,6 +30,7 @@ class Institution(Base):
     code: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
     contact_email: Mapped[str] = mapped_column(String(255), nullable=False)
     address: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    institution_type: Mapped[str] = mapped_column(String(100), default="unknown", nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

@@ -2,7 +2,8 @@ import type { CaseStatus } from './case'
 
 export interface ReleaseRequestCreate {
   case_id: string
-  reason: string
+  request_type: 'maturity' | 'early_release' | 'replacement' | 'renewal' | 'refund'
+  reason?: string
 }
 
 export interface ReleaseDecisionRequest {
@@ -16,6 +17,7 @@ export interface ReleaseChecklistItem {
   mandatory: boolean
   condition?: string | null
   category?: string | null
+  document_type?: string | null
   completed: boolean
 }
 

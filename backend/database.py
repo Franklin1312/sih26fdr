@@ -5,6 +5,7 @@ from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy import inspect
 
 from backend.config import get_settings
 
@@ -70,6 +71,35 @@ async def init_db() -> None:
     """Initialize database tables."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        if settings.database_url.startswith("sqlite"):
+            await conn.run_sync(_apply_sqlite_compat_columns)
+
+
+def _apply_sqlite_compat_columns(connection) -> None:
+    """Add fields introduced after a local SQLite database was first created."""
+    inspector = inspect(connection)
+    additions = {
+        "institutions": {"institution_type": "VARCHAR(50) NOT NULL DEFAULT 'unknown'"},
+        "deposit_cases": {
+            "instrument_date": "DATETIME",
+            "term_end_date": "DATETIME",
+        },
+        "deposit_evidence": {
+            "file_hash": "VARCHAR(64)",
+            "is_deleted": "BOOLEAN NOT NULL DEFAULT 0",
+            "is_demo": "BOOLEAN NOT NULL DEFAULT 0",
+        },
+        "release_requests": {"updated_at": "DATETIME DEFAULT CURRENT_TIMESTAMP"},
+    }
+    for table, columns in additions.items():
+        if not inspector.has_table(table):
+            continue
+        existing = {column["name"] for column in inspector.get_columns(table)}
+        for name, declaration in columns.items():
+            if name not in existing:
+                connection.exec_driver_sql(
+                    f'ALTER TABLE "{table}" ADD COLUMN "{name}" {declaration}'
+                )
 
 
 async def close_db() -> None:

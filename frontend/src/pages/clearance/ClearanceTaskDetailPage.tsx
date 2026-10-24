@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { clearanceApi } from '../../api/clearance';
 import type { ClearanceTaskDetail } from '../../types/clearance';
 import { formatDate } from '../../utils/helpers';
-import { AlertCircle, Loader2, CheckCircle, XCircle, FileText, ArrowLeft } from 'lucide-react';
+import { AlertCircle, Loader2, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
@@ -32,7 +32,6 @@ export function ClearanceTaskDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionModalOpen, setActionModalOpen] = useState(false);
   const [actionType, setActionType] = useState<'claim' | 'complete'>('claim');
-  const [evidenceFiles, setEvidenceFiles] = useState<File[]>([]);
   const [notes, setNotes] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -69,14 +68,13 @@ export function ClearanceTaskDetailPage() {
   };
 
   const handleComplete = async () => {
-    if (!taskId) return;
+    if (!taskId || !task || !notes.trim()) return;
     setActionLoading(true);
     try {
-      await clearanceApi.completeTask(taskId, { evidence: evidenceFiles.map(f => f.name), notes });
+      await clearanceApi.completeTask(task.id, { notes: notes.trim() });
       const data = await clearanceApi.getTaskDetail(taskId);
       setTask(data);
       setActionModalOpen(false);
-      setEvidenceFiles([]);
       setNotes('');
     } catch (err: any) {
       alert(err.message || 'Failed to complete task');
@@ -154,7 +152,7 @@ export function ClearanceTaskDetailPage() {
               {task.updated_at && task.updated_at !== task.created_at && <div><p className="text-sm text-gray-500">Last Updated</p><p className="font-medium text-gray-900">{formatDate(task.updated_at, 'full')}</p></div>}
             </div>
             {task.notes && <div className="mt-4 pt-4 border-t border-gray-200"><h3 className="text-sm font-medium text-gray-900 mb-2">Officer Notes</h3><p className="text-gray-700">{task.notes}</p></div>}
-            {task.evidence && task.evidence.length > 0 && <div className="mt-4 pt-4 border-t border-gray-200"><h3 className="text-sm font-medium text-gray-900 mb-2">Evidence Files</h3><ul className="space-y-2">{task.evidence.map((file, idx) => <li key={idx} className="flex items-center gap-2 text-sm text-gray-700"><FileText className="h-4 w-4 text-gray-400" />{file}</li>)}</ul></div>}
+            {task.evidence && <div className="mt-4 pt-4 border-t border-gray-200"><h3 className="text-sm font-medium text-gray-900 mb-2">Evidence / completion record</h3><p className="whitespace-pre-wrap text-sm text-gray-700">{task.evidence}</p></div>}
           </div>
           <div className="bg-white border border-gray-200 rounded-xl p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Case Documents</h2>
@@ -193,13 +191,10 @@ export function ClearanceTaskDetailPage() {
           <Modal.Header><Modal.Title>{actionType === 'claim' ? 'Claim Task' : 'Complete Task'}</Modal.Title></Modal.Header>
           <Modal.Body className="space-y-4">
             {actionType === 'claim' ? <p className="text-gray-600">Are you sure you want to claim this task? You will become the assigned officer.</p> : (
-              <>
-                <div className="space-y-2"><label className="block text-sm font-medium text-gray-700">Evidence Files</label><input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onChange={(e) => e.target.files && setEvidenceFiles(Array.from(e.target.files))} className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-medium file:bg-primary-50 file:text-primary-700 hover:file:bg-primary-100" />{evidenceFiles.length > 0 && <ul className="space-y-1">{evidenceFiles.map((file, idx) => <li key={idx} className="flex items-center justify-between text-sm text-gray-700 bg-gray-50 px-2 py-1 rounded"><span>{file.name}</span><button type="button" onClick={() => setEvidenceFiles(evidenceFiles.filter((_, i) => i !== idx))} className="text-red-500 hover:text-red-700">×</button></li>)}</ul>}</div>
-                <Textarea label="Notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Add completion notes..." rows={3} />
-              </>
+                <Textarea label="Evidence / completion notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Record the evidence reviewed and completion decision..." rows={4} />
             )}
           </Modal.Body>
-          <Modal.Footer><Button variant="secondary" onClick={() => { setActionModalOpen(false); setEvidenceFiles([]); setNotes(''); }} disabled={actionLoading}>Cancel</Button><Button variant="primary" onClick={actionType === 'claim' ? handleClaim : handleComplete} disabled={actionLoading}>{actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : (actionType === 'claim' ? 'Claim' : 'Complete')}</Button></Modal.Footer>
+          <Modal.Footer><Button variant="secondary" onClick={() => { setActionModalOpen(false); setNotes(''); }} disabled={actionLoading}>Cancel</Button><Button variant="primary" onClick={actionType === 'claim' ? handleClaim : handleComplete} disabled={actionLoading || (actionType === 'complete' && !notes.trim())}>{actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : (actionType === 'claim' ? 'Claim' : 'Complete')}</Button></Modal.Footer>
         </Modal.Content>
       </Modal.Root>
     </div>

@@ -30,6 +30,16 @@ export interface UserResponse {
   updated_at: string
 }
 
+export interface AuthenticatedUser {
+  user_id: string
+  email: string
+  full_name: string
+  role: UserRole
+  institution_id: string | null
+  institution_name?: string | null
+  is_authenticated: boolean
+}
+
 export type UserRole =
   | 'institution_rep'
   | 'scrutiny_officer'

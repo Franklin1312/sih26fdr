@@ -16,6 +16,7 @@ class InstitutionBase(BaseModel):
     code: str = Field(..., min_length=1, max_length=50)
     contact_email: EmailStr
     address: Optional[str] = None
+    institution_type: str = "unknown"
 
 
 class InstitutionCreate(InstitutionBase):
@@ -28,6 +29,7 @@ class InstitutionUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=1, max_length=255)
     contact_email: Optional[EmailStr] = None
     address: Optional[str] = None
+    institution_type: Optional[str] = None
     is_active: Optional[bool] = None
 
 
@@ -89,3 +91,8 @@ class CurrentUserResponse(BaseModel):
     institution_id: Optional[str] = None
     institution_name: Optional[str] = None
     is_authenticated: bool = True
+
+    @property
+    def roles(self) -> List[UserRole]:
+        """Compatibility for route policies that check a role collection."""
+        return [self.role]

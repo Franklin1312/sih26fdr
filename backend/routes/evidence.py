@@ -24,8 +24,19 @@ from backend.schemas.evidence import (
 )
 from backend.schemas.common import PaginationParams, PaginatedResponse
 from backend.schemas.institution import CurrentUserResponse
+from backend.config import get_settings
 
 router = APIRouter()
+
+
+def require_evidence_access(user: UserContext, case: DepositCase, permission: str) -> None:
+    """Enforce action permission and tenant/assignment access for evidence."""
+    if not user.has_permission(permission):
+        raise HTTPException(status_code=403, detail="Insufficient permission for this document action")
+    if not access_control.can_access_case(
+        user, case.institution_id, case.assigned_officer_id, case.status.value
+    ):
+        raise HTTPException(status_code=403, detail="Cannot access documents for this case")
 
 
 async def get_current_user(authorization: str = Header(None)):
@@ -73,12 +84,10 @@ async def upload_evidence(
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
     
-    # Check permissions - institution reps can only upload to their own cases
-    if "institution_rep" in user.roles and case.institution_id != user.institution_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot upload to other institution's case")
+    require_evidence_access(user, case, "evidence:upload")
     
     # Check case status - only allow upload in certain statuses
-    allowed_statuses = [CaseStatus.DRAFT, CaseStatus.SUBMITTED, CaseStatus.UNDER_SCRUTINY, CaseStatus.CLARIFICATION_PENDING]
+    allowed_statuses = [CaseStatus.DRAFT, CaseStatus.SUBMITTED, CaseStatus.UNDER_SCRUTINY, CaseStatus.CLARIFICATION_PENDING, CaseStatus.CLEARED, CaseStatus.RELEASE_REQUESTED, CaseStatus.FDR_RPGF_REVIEW, CaseStatus.RTGS_REVIEW, CaseStatus.SD_REFUND_REVIEW]
     if case.status not in allowed_statuses:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -86,7 +95,7 @@ async def upload_evidence(
         )
     
     # Read file content
-    file_content = await file.read()
+    file_content = await file.read(get_settings().max_upload_size_mb * 1024 * 1024 + 1)
     
     # Determine MIME type
     mime_type = file.content_type or "application/octet-stream"
@@ -108,18 +117,18 @@ async def upload_evidence(
         select(DepositEvidence)
         .where(DepositEvidence.case_id == case_id)
         .where(DepositEvidence.document_type == document_type)
+        .where(DepositEvidence.is_deleted.is_(False))
         .where(DepositEvidence.replaced_by_id.is_(None))
         .order_by(DepositEvidence.version.desc())
     )
     existing = existing_result.scalars().first()
     
-    version = file_meta["version"]
+    version = existing.version + 1 if existing else 1
     replaced_id = None
     
     if existing:
         # Mark existing as replaced
         replaced_id = existing.id
-        existing.replaced_by_id = str(uuid4())  # placeholder, will update after new evidence created
     
     # Create evidence record with OCR data
     evidence = DepositEvidence(
@@ -131,12 +140,14 @@ async def upload_evidence(
         file_size=file_meta["file_size"],
         mime_type=file_meta["mime_type"],
         uploaded_by=user.user_id,
+        is_demo=case.is_demo,
         file_hash=file_meta["file_hash"],
         version=version,
         replaced_by_id=replaced_id,
         ocr_text=file_meta.get("ocr_text"),
         ocr_confidence=file_meta.get("ocr_confidence"),
         extracted_data=file_meta.get("extracted_data"),
+        validation_flags=file_meta.get("validation_flags"),
     )
     
     # Update replaced_by_id on existing record if applicable
@@ -202,10 +213,11 @@ async def list_evidence(
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
     
-    if "institution_rep" in user.roles and case.institution_id != user.institution_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot access other institution's case")
+    require_evidence_access(user, case, "evidence:read")
     
-    query = select(DepositEvidence).where(DepositEvidence.case_id == case_id)
+    query = select(DepositEvidence).where(
+        DepositEvidence.case_id == case_id, DepositEvidence.is_deleted.is_(False)
+    )
     
     if document_type:
         query = query.where(DepositEvidence.document_type == document_type)
@@ -262,8 +274,9 @@ async def get_evidence(
     # Verify case access
     case_result = await db.execute(select(DepositCase).where(DepositCase.id == evidence.case_id))
     case = case_result.scalar_one_or_none()
-    if "institution_rep" in user.roles and case.institution_id != user.institution_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot access other institution's case")
+    require_evidence_access(user, case, "evidence:read")
+    if evidence.is_deleted:
+        raise HTTPException(status_code=404, detail="Evidence not found")
     
     return DepositEvidenceResponse(
         id=evidence.id,
@@ -297,8 +310,9 @@ async def get_download_token(
     # Verify case access
     case_result = await db.execute(select(DepositCase).where(DepositCase.id == evidence.case_id))
     case = case_result.scalar_one_or_none()
-    if "institution_rep" in user.roles and case.institution_id != user.institution_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot access other institution's case")
+    require_evidence_access(user, case, "evidence:read")
+    if evidence.is_deleted:
+        raise HTTPException(status_code=404, detail="Evidence not found")
     
     # Verify file exists
     if not file_storage.file_exists(evidence.file_path):
@@ -343,8 +357,13 @@ async def download_evidence(
     # Get evidence record
     result = await db.execute(select(DepositEvidence).where(DepositEvidence.id == evidence_id))
     evidence = result.scalar_one_or_none()
-    if not evidence or evidence.file_path != relative_path:
+    if not evidence or evidence.file_path != relative_path or evidence.is_deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evidence not found")
+    case_result = await db.execute(select(DepositCase).where(DepositCase.id == evidence.case_id))
+    case = case_result.scalar_one_or_none()
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
+    require_evidence_access(user, case, "evidence:read")
     
     # Verify file exists
     file_path = file_storage.get_file_path(relative_path)
@@ -380,11 +399,10 @@ async def replace_evidence(
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
     
-    if "institution_rep" in user.roles and case.institution_id != user.institution_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot upload to other institution's case")
+    require_evidence_access(user, case, "evidence:upload")
     
     # Check case status
-    allowed_statuses = [CaseStatus.DRAFT, CaseStatus.SUBMITTED, CaseStatus.UNDER_SCRUTINY, CaseStatus.CLARIFICATION_PENDING]
+    allowed_statuses = [CaseStatus.DRAFT, CaseStatus.SUBMITTED, CaseStatus.UNDER_SCRUTINY, CaseStatus.CLARIFICATION_PENDING, CaseStatus.CLEARED, CaseStatus.RELEASE_REQUESTED, CaseStatus.FDR_RPGF_REVIEW, CaseStatus.RTGS_REVIEW, CaseStatus.SD_REFUND_REVIEW]
     if case.status not in allowed_statuses:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -396,6 +414,7 @@ async def replace_evidence(
         select(DepositEvidence)
         .where(DepositEvidence.case_id == case_id)
         .where(DepositEvidence.document_type == document_type)
+        .where(DepositEvidence.is_deleted.is_(False))
         .where(DepositEvidence.replaced_by_id.is_(None))
         .order_by(DepositEvidence.version.desc())
     )
@@ -405,7 +424,7 @@ async def replace_evidence(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No existing document of this type to replace")
     
     # Read file content
-    file_content = await file.read()
+    file_content = await file.read(get_settings().max_upload_size_mb * 1024 * 1024 + 1)
     mime_type = file.content_type or "application/octet-stream"
     
     try:
@@ -432,7 +451,9 @@ async def replace_evidence(
         mime_type=file_meta["mime_type"],
         uploaded_by=user.user_id,
         file_hash=file_meta["file_hash"],
+        is_demo=case.is_demo,
         version=new_version,
+        validation_flags=file_meta.get("validation_flags"),
     )
     
     # Mark old version as replaced
@@ -494,18 +515,17 @@ async def delete_evidence(
     # Verify case access
     case_result = await db.execute(select(DepositCase).where(DepositCase.id == evidence.case_id))
     case = case_result.scalar_one_or_none()
-    if "institution_rep" in user.roles and case.institution_id != user.institution_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Cannot access other institution's case")
+    require_evidence_access(user, case, "evidence:delete_own")
     
     # Only allow delete in draft/submitted states
-    if case.status not in [CaseStatus.DRAFT, CaseStatus.SUBMITTED]:
+    if case.status not in [CaseStatus.DRAFT, CaseStatus.SUBMITTED, CaseStatus.RELEASE_REQUESTED, CaseStatus.FDR_RPGF_REVIEW, CaseStatus.RTGS_REVIEW, CaseStatus.SD_REFUND_REVIEW]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Cannot delete evidence when case is in {case.status.value} status"
         )
     
-    # Soft delete file
-    file_storage.delete_file(evidence.file_path)
+    # Preserve the original in private storage and hide it from current case views.
+    evidence.is_deleted = True
     
     # Log audit event
     await audit_service.log_event(

@@ -97,6 +97,11 @@ class AuditAction(str, enum.Enum):
     RELEASE_DECISION = "release_decision"
     ROLE_ASSIGN = "role_assign"
     CONFIG_CHANGE = "config_change"
+    ALERT_SENT = "alert_sent"
+    CLEARANCE_CASE_CLAIMED = "clearance_case_claimed"
+    CLEARANCE_ALL_CLEARED = "clearance_all_cleared"
+    RELEASE_REQUESTED = "release_requested"
+    RELEASE_DECIDED = "release_decided"
 
 
 # Valid status transitions

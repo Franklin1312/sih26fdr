@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.config import get_settings
 from backend.database import get_db_context
 from backend.models import LifecycleDate, DepositCase, Institution
-from backend.models.enums import LifecycleDateType
+from backend.models.enums import LifecycleDateType, AuditAction
 from backend.services.rule_engine import get_rule_engine
 from backend.services.audit_service import audit_service
 
@@ -171,8 +171,8 @@ class AlertSchedulerService:
             db=db,
             entity_type="alert_notification",
             entity_id=lifecycle_date.id,
-            action="ALERT_SENT",
-            actor_id="system",
+            action=AuditAction.ALERT_SENT,
+            actor_id="admin_1",
             old_values=None,
             new_values={
                 "case_id": case.id,

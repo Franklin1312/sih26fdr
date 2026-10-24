@@ -23,7 +23,7 @@ export const releaseApi = {
     return response.data
   },
 
-  async requestRelease(data: ReleaseRequestCreate): Promise<{ success: boolean; request_id: string }> {
+  async requestRelease(data: ReleaseRequestCreate): Promise<ReleaseCaseDetail> {
     const response = await apiClient.axios.post('/release/request', data)
     return response.data
   },

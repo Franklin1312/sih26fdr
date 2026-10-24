@@ -145,11 +145,14 @@ export type DepositEvidenceListResponse = PaginatedResponse<DepositEvidenceRespo
 export interface DashboardStats {
   total: number
   by_status: Record<string, number>
-  by_deposit_type: Record<string, number>
-  by_deposit_method: Record<string, number>
+  by_type: Record<string, number>
+  by_method: Record<string, number>
   total_amount: number
   overdue_count: number
   upcoming_maturity_count: number
+  pending_my_action: number
+  overdue_clearances: number
+  upcoming_maturities: number
 }
 
 export type DepositCaseDashboardStats = DashboardStats

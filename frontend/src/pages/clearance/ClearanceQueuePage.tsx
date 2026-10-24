@@ -72,7 +72,7 @@ export function ClearanceQueuePage() {
       key: 'actions',
       header: 'Actions',
       render: (row) => row.clearance_tasks[0]
-        ? <Link to={`/clearance/tasks/${row.clearance_tasks[0].id}`}><Button variant="ghost" size="sm">Open task</Button></Link>
+        ? <Link to={`/clearance/tasks/${row.case_id}`}><Button variant="ghost" size="sm">Open task</Button></Link>
         : <span className="text-sm text-gray-500">No tasks</span>,
     },
   ];

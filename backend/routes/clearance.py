@@ -3,7 +3,7 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Header
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -20,6 +20,7 @@ from backend.models.entities_clarification import (
 )
 from backend.models.entities_core import User
 from backend.models.enums import (
+    AuditAction,
     CaseStatus,
     ClearanceStatus,
     UserRole,
@@ -69,7 +70,10 @@ async def get_clearance_queue(
     query = select(DepositCase).where(
         and_(
             DepositCase.status == CaseStatus.CLEARANCE_QUEUE,
-            DepositCase.assigned_officer_id == current_user.user_id,
+            or_(
+                DepositCase.assigned_officer_id == current_user.user_id,
+                DepositCase.assigned_officer_id.is_(None),
+            ),
         )
     )
     
@@ -161,6 +165,10 @@ async def claim_clearance_case(
     if case.status != CaseStatus.CLEARANCE_QUEUE:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Case is not in clearance queue (status: {case.status.value})")
     
+    if case.assigned_officer_id and case.assigned_officer_id != current_user.user_id:
+        raise HTTPException(status_code=403, detail="Case has already been claimed by another officer")
+    if not case.clearances:
+        raise HTTPException(status_code=409, detail="Case has no clearance tasks")
     case.assigned_officer_id = current_user.user_id
     for task in case.clearances:
         task.assigned_to = current_user.user_id
@@ -168,9 +176,9 @@ async def claim_clearance_case(
     await db.flush()
     
     await audit_service.log_event(
-        db, actor_id=current_user.user_id, action="clearance_case_claimed",
-        resource_type="deposit_case", resource_id=case_id,
-        details={"case_number": case.case_number},
+        db=db, entity_type="deposit_case", entity_id=case_id,
+        actor_id=current_user.user_id, action=AuditAction.CLEARANCE_CASE_CLAIMED,
+        new_values={"case_number": case.case_number},
     )
     
     task = case.clearances[0] if case.clearances else None
@@ -205,6 +213,8 @@ async def update_clearance_task(
     if not task: raise HTTPException(status_code=404, detail="Clearance task not found")
     if task.assigned_to != current_user.user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not assigned to this task")
+    if request.status == ClearanceStatus.CLEARED and not (request.evidence or task.evidence):
+        raise HTTPException(status_code=400, detail="Evidence is required before a clearance can be completed")
     
     if request.status is not None:
         task.status = request.status
@@ -218,8 +228,8 @@ async def update_clearance_task(
     # Check if all tasks for this case are cleared
     case = await db.get(DepositCase, task.case_id)
     if case:
-        all_cleared = all(t.status == ClearanceStatus.CLEARED for t in case.clearances)
-        if all_cleared:
+        all_cleared = bool(case.clearances) and all(t.status == ClearanceStatus.CLEARED for t in case.clearances)
+        if all_cleared and case.status == CaseStatus.CLEARANCE_QUEUE:
             old_status = case.status
             case.status = CaseStatus.CLEARED
             await case_service._log_case_event(
@@ -228,9 +238,9 @@ async def update_clearance_task(
                 {"reason": "All clearance tasks completed", "auto_transition": True}
             )
             await audit_service.log_event(
-                db, actor_id=current_user.user_id, action="clearance_all_cleared",
-                resource_type="deposit_case", resource_id=case.id,
-                details={"case_number": case.case_number, "all_tasks_cleared": True},
+                db=db, entity_type="deposit_case", entity_id=case.id,
+                actor_id=current_user.user_id, action=AuditAction.CLEARANCE_ALL_CLEARED,
+                new_values={"case_number": case.case_number, "all_tasks_cleared": True},
             )
     
     await db.refresh(task, ["assigned_to_user"])
@@ -265,18 +275,21 @@ async def complete_clearance_task(
     if not task: raise HTTPException(status_code=404, detail="Clearance task not found")
     if task.assigned_to != current_user.user_id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not assigned to this task")
+    if not request.notes or not request.notes.strip():
+        raise HTTPException(status_code=400, detail="Completion evidence/notes are required")
     
     task.status = ClearanceStatus.CLEARED
     task.completed_at = func.now()
     if request.notes:
         task.notes = (task.notes or "") + f"\nCompletion: {request.notes}"
+        task.evidence = request.notes
     
     await db.flush()
     
     case = await db.get(DepositCase, task.case_id)
     if case:
-        all_cleared = all(t.status == ClearanceStatus.CLEARED for t in case.clearances)
-        if all_cleared:
+        all_cleared = bool(case.clearances) and all(t.status == ClearanceStatus.CLEARED for t in case.clearances)
+        if all_cleared and case.status == CaseStatus.CLEARANCE_QUEUE:
             old_status = case.status
             case.status = CaseStatus.CLEARED
             await case_service._log_case_event(
@@ -285,9 +298,9 @@ async def complete_clearance_task(
                 {"reason": "All clearance tasks completed", "auto_transition": True}
             )
             await audit_service.log_event(
-                db, actor_id=current_user.user_id, action="clearance_all_cleared",
-                resource_type="deposit_case", resource_id=case.id,
-                details={"case_number": case.case_number, "all_tasks_cleared": True},
+                db=db, entity_type="deposit_case", entity_id=case.id,
+                actor_id=current_user.user_id, action=AuditAction.CLEARANCE_ALL_CLEARED,
+                new_values={"case_number": case.case_number, "all_tasks_cleared": True},
             )
     
     await db.refresh(task, ["assigned_to_user"])
@@ -328,8 +341,7 @@ async def get_clearance_history(
             evidence=task.evidence, notes=task.notes, completed_at=task.completed_at,
             officer_name=officer_name,
         ))
-    
-    all_cleared = all(t.status == ClearanceStatus.CLEARED for t in case.clearances)
+    all_cleared = bool(case.clearances) and all(t.status == ClearanceStatus.CLEARED for t in case.clearances)
     
     return ClearanceHistoryResponse(
         case_id=case.id, case_number=case.case_number, current_status=case.status,

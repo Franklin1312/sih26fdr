@@ -14,6 +14,7 @@ from backend.models import (
     Institution,
     User,
     DepositEvidence,
+    CaseEvent,
 )
 from backend.models.enums import (
     CaseStatus,
@@ -66,12 +67,17 @@ class WizardService:
         if not institution:
             raise ValueError("Institution not found")
 
+        if not user.has_permission("case:create"):
+            raise PermissionError("Cannot create a deposit case")
+        if user.institution_id and user.institution_id != institution_id:
+            raise PermissionError("Cannot create a case for another institution")
+
         if user.institution_id != institution_id and not access_control.require_permission(user, "case:create"):
             raise PermissionError("Cannot create case for another institution")
 
         # Create minimal draft case
         case = DepositCase(
-            tracking_ref="",  # Will be generated on submit
+            tracking_ref=f"DRAFT-{uuid4().hex[:12].upper()}",
             institution_id=institution_id,
             deposit_type=DepositType.FDR,  # Placeholder
             deposit_method=DepositMethod.FDR_RPGF,  # Placeholder
@@ -82,7 +88,7 @@ class WizardService:
             maturity_date=None,
             aicte_clause_ref=None,
             status=CaseStatus.DRAFT,
-            is_demo=True,
+            is_demo=False,
         )
 
         self.db.add(case)
@@ -116,6 +122,7 @@ class WizardService:
         case.amount = data["amount"]
         case.currency = data.get("currency", "INR")
         case.instrument_number = data["instrument_number"]
+        case.instrument_date = datetime.fromisoformat(data["instrument_date"].replace("Z", "+00:00")) if data.get("instrument_date") else None
         case.issuing_bank = data["issuing_bank"]
 
         if data.get("maturity_date"):
@@ -123,6 +130,7 @@ class WizardService:
             case.maturity_date = datetime.fromisoformat(data["maturity_date"].replace("Z", "+00:00"))
 
         case.aicte_clause_ref = data.get("aicte_clause_ref")
+        case.term_end_date = datetime.fromisoformat(data["term_end_date"].replace("Z", "+00:00")) if data.get("term_end_date") else None
 
         await self.db.flush()
 
@@ -189,12 +197,8 @@ class WizardService:
         institution = await self.db.get(Institution, case.institution_id)
 
         # Run completeness check (PS-03)
-        completeness = validation_engine.validate_completeness(
-            case.deposit_type,
-            case.deposit_method,
-            uploaded_docs,
-            institution,
-            float(case.amount) if case.amount else None,
+        completeness = validation_engine.validate_case_completeness(
+            case, [doc["document_type"] for doc in uploaded_docs]
         )
 
         if not completeness.is_valid:
@@ -220,6 +224,15 @@ class WizardService:
             },
         )
 
+        from backend.models import CaseEvent
+        self.db.add(CaseEvent(
+            case_id=case.id,
+            event_type="wizard_review_confirmed",
+            actor_id=user.user_id,
+            details={"confirmed": True, "terms_accepted": True},
+        ))
+        await self.db.flush()
+
         return ValidationResult(
             is_valid=True,
             warnings=completeness.warnings,
@@ -233,8 +246,30 @@ class WizardService:
             raise ValueError("Case not found or not accessible")
 
         # Verify case has required data
-        if not all([case.tracking_ref, case.deposit_type, case.deposit_method, case.amount, case.instrument_number, case.issuing_bank]):
+        if not all([case.deposit_type, case.deposit_method, case.amount, case.instrument_number, case.issuing_bank]):
             raise ValueError("Case data incomplete - complete all wizard steps first")
+
+        confirmation = await self.db.execute(
+            select(CaseEvent.id).where(
+                CaseEvent.case_id == case_id,
+                CaseEvent.event_type == "wizard_review_confirmed",
+                CaseEvent.details["confirmed"].as_boolean().is_(True),
+                CaseEvent.details["terms_accepted"].as_boolean().is_(True),
+            ).limit(1)
+        )
+        if confirmation.scalar_one_or_none() is None:
+            raise ValueError("Complete the review and accept the terms before submitting")
+
+        evidence_result = await self.db.execute(select(DepositEvidence).where(
+            DepositEvidence.case_id == case_id,
+            DepositEvidence.is_deleted.is_(False),
+            DepositEvidence.replaced_by_id.is_(None),
+        ))
+        completeness = validation_engine.validate_case_completeness(
+            case, [item.document_type for item in evidence_result.scalars().all()]
+        )
+        if not completeness.is_valid:
+            raise ValueError("Missing mandatory documents: " + ", ".join(completeness.missing_mandatory))
 
         # Generate tracking reference if not set
         if not case.tracking_ref:
@@ -265,7 +300,6 @@ class WizardService:
         )
 
         # Log case event
-        from backend.models import CaseEvent
         event = CaseEvent(
             case_id=case.id,
             event_type="case_submitted",
@@ -310,6 +344,15 @@ class WizardService:
         if uploaded_doc_types:
             step = WizardState.STEP_3
 
+        step1_completed = bool(case.instrument_number and case.issuing_bank and case.amount and case.amount > 0)
+        step2_completed = bool(uploaded_doc_types)
+        step3_result = await self.db.execute(select(CaseEvent.id).where(
+            CaseEvent.case_id == case_id,
+            CaseEvent.event_type == "wizard_review_confirmed",
+            CaseEvent.details["confirmed"].as_boolean().is_(True),
+            CaseEvent.details["terms_accepted"].as_boolean().is_(True),
+        ).limit(1))
+        step3_completed = step3_result.scalar_one_or_none() is not None
         return {
             "case_id": case.id,
             "tracking_ref": case.tracking_ref,
@@ -319,8 +362,10 @@ class WizardService:
             "amount": float(case.amount) if case.amount else 0,
             "currency": case.currency,
             "instrument_number": case.instrument_number,
+            "instrument_date": case.instrument_date.isoformat() if case.instrument_date else None,
             "issuing_bank": case.issuing_bank,
             "maturity_date": case.maturity_date.isoformat() if case.maturity_date else None,
+            "term_end_date": case.term_end_date.isoformat() if case.term_end_date else None,
             "aicte_clause_ref": case.aicte_clause_ref,
             "uploaded_documents": [
                 {
@@ -338,4 +383,10 @@ class WizardService:
             "missing_conditional": [
                 dt for dt in required["conditional"] if dt not in uploaded_doc_types
             ],
+            "step1_completed": step1_completed,
+            "step2_completed": step2_completed,
+            "step3_completed": step3_completed,
+            "can_submit": step1_completed and step3_completed and not any(
+                dt not in uploaded_doc_types for dt in required["mandatory"]
+            ),
         }

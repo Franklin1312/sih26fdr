@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from backend.models.enums import (
     ClarificationStatus,
@@ -37,6 +37,18 @@ class ClarificationRequestResponse(ClarificationRequestBase, IDMixin, TimestampM
     responded_by_user: Optional["UserResponse"] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @computed_field
+    @property
+    def items(self) -> List[Dict[str, Any]]:
+        return [{
+            "id": self.id,
+            "document_type": "",
+            "reason": self.question,
+            "response": self.response,
+            "responded_at": self.resolved_at,
+            "responded_by": self.responded_by,
+        }]
 
 
 class ClarificationRequestUpdate(BaseModel):

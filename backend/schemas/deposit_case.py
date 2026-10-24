@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 from decimal import Decimal
 
-from pydantic import BaseModel, ConfigDict, Field, EmailStr
+from pydantic import BaseModel, ConfigDict, Field, EmailStr, computed_field
 
 from backend.models.enums import (
     DepositType,
@@ -24,8 +24,10 @@ class DepositCaseBase(BaseModel):
     amount: Decimal = Field(..., gt=0, max_digits=15, decimal_places=2)
     currency: str = Field(default="INR", min_length=3, max_length=3)
     instrument_number: str = Field(..., min_length=1, max_length=100)
+    instrument_date: Optional[datetime] = None
     issuing_bank: str = Field(..., min_length=1, max_length=255)
     maturity_date: Optional[datetime] = None
+    term_end_date: Optional[datetime] = None
     aicte_clause_ref: Optional[str] = Field(default=None, max_length=100)
 
 
@@ -41,8 +43,10 @@ class DepositCaseUpdate(BaseModel):
     amount: Optional[Decimal] = Field(default=None, gt=0, max_digits=15, decimal_places=2)
     currency: Optional[str] = Field(default=None, min_length=3, max_length=3)
     instrument_number: Optional[str] = Field(default=None, min_length=1, max_length=100)
+    instrument_date: Optional[datetime] = None
     issuing_bank: Optional[str] = Field(default=None, min_length=1, max_length=255)
     maturity_date: Optional[datetime] = None
+    term_end_date: Optional[datetime] = None
     aicte_clause_ref: Optional[str] = Field(default=None, max_length=100)
 
 
@@ -67,6 +71,11 @@ class DepositCaseResponse(DepositCaseBase, IDMixin, TimestampMixin):
 
     model_config = ConfigDict(from_attributes=True)
 
+    @computed_field
+    @property
+    def case_number(self) -> str:
+        return self.tracking_ref
+
 
 class DepositCaseDetail(DepositCaseResponse):
     """Deposit case with related data."""
@@ -78,6 +87,11 @@ class DepositCaseDetail(DepositCaseResponse):
     clearances: List["ClearanceTaskResponse"] = []
     release_requests: List["ReleaseRequestResponse"] = []
     lifecycle_dates: List["LifecycleDateResponse"] = []
+
+    @computed_field
+    @property
+    def documents(self) -> List["DepositEvidenceResponse"]:
+        return [document for document in self.evidence if not document.is_deleted]
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -103,6 +117,9 @@ class DepositCaseDashboardStats(BaseModel):
     pending_my_action: int
     overdue_clearances: int
     upcoming_maturities: int
+    total_amount: float = 0
+    overdue_count: int = 0
+    upcoming_maturity_count: int = 0
 
 
 # Forward references

@@ -65,7 +65,10 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
-def create_access_token(user_id: str, roles: List[str], expires_delta: Optional[timedelta] = None) -> str:
+def create_access_token(
+    user_id: str, roles: List[str], expires_delta: Optional[timedelta] = None,
+    claims: Optional[Dict[str, Any]] = None,
+) -> str:
     """Create a signed JWT access token."""
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
@@ -78,6 +81,7 @@ def create_access_token(user_id: str, roles: List[str], expires_delta: Optional[
         "iat": datetime.now(timezone.utc),
         "exp": expire,
     }
+    payload.update(claims or {})
     return jwt.encode(payload, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
@@ -96,29 +100,31 @@ class AuthService:
     def __init__(self):
         self.demo_users: Dict[str, Dict[str, Any]] = {}
 
-    async def authenticate_demo(self, user_id: str, roles: List[str]) -> "CurrentUserResponse":
-        """Authenticate a demo user (DEMO_MODE only)."""
+    async def authenticate_demo(self, user_id: str) -> "CurrentUserResponse":
+        """Resolve an explicitly provisioned demo principal; roles are never token supplied."""
         from backend.schemas.institution import CurrentUserResponse, UserRole
         
         if not DEMO_MODE:
             raise ValueError("Demo authentication not available outside DEMO_MODE")
         
-        # Validate role
-        try:
-            role_enum = UserRole(roles[0]) if roles else UserRole.INSTITUTION_REP
-        except ValueError:
-            role_enum = UserRole.INSTITUTION_REP
-        
-        # Create or get demo user
-        if user_id not in self.demo_users:
-            self.demo_users[user_id] = {
-                "user_id": user_id,
-                "email": f"{user_id}@demo.sih26265",
-                "full_name": user_id.replace("_", " ").title(),
-                "role": role_enum,
-                "institution_id": None,
-                "is_authenticated": True,
-            }
+        account_roles = {
+            "inst_rep_1": UserRole.INSTITUTION_REP,
+            "scrutiny_1": UserRole.SCRUTINY_OFFICER,
+            "clearance_1": UserRole.CLEARANCE_OFFICER,
+            "authority_1": UserRole.COMPETENT_AUTHORITY,
+            "admin_1": UserRole.SYSTEM_ADMIN,
+        }
+        role_enum = account_roles.get(user_id)
+        if role_enum is None:
+            raise ValueError("Unknown demo account")
+        self.demo_users[user_id] = {
+            "user_id": user_id,
+            "email": f"{user_id}@demo.example",
+            "full_name": user_id.replace("_", " ").title(),
+            "role": role_enum,
+            "institution_id": "inst_1" if role_enum == UserRole.INSTITUTION_REP else None,
+            "is_authenticated": True,
+        }
         
         return CurrentUserResponse(**self.demo_users[user_id])
 
@@ -157,17 +163,24 @@ class AuthService:
         token = parts[1]
         
         if DEMO_MODE:
-            # Demo mode: token format is "user_id:role1,role2"
-            try:
-                if ":" in token:
-                    user_id, roles_str = token.split(":", 1)
-                    roles = [r.strip() for r in roles_str.split(",") if r.strip()]
-                else:
-                    user_id = token
-                    roles = ["institution_rep"]
-                return await self.authenticate_demo(user_id, roles)
-            except Exception:
-                raise ValueError("Invalid demo token format")
+            if token.startswith("demo:"):
+                return await self.authenticate_demo(token.removeprefix("demo:"))
+            # Compatibility for in-process demo clients: only accept the legacy
+            # user:role form when the server already has that exact principal/role.
+            user_id, separator, role_value = token.rpartition(":")
+            from backend.services.access_control import access_control
+            context = access_control.get_user_context(user_id) if separator else None
+            if context and any(role.value == role_value for role in context.roles):
+                from backend.schemas.institution import CurrentUserResponse
+                role = next(role for role in context.roles if role.value == role_value)
+                return CurrentUserResponse(
+                    user_id=context.user_id,
+                    email=context.email,
+                    full_name=context.full_name,
+                    role=role,
+                    institution_id=context.institution_id,
+                )
+            raise ValueError("Invalid demo token format")
         else:
             # Production mode: JWT
             return await self.authenticate_jwt(token)

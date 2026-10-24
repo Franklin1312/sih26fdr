@@ -109,6 +109,26 @@ async def get_case(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(e))
 
 
+@router.get("/tracking/{tracking_ref}", response_model=DepositCaseDetail)
+async def get_case_by_tracking_ref(
+    tracking_ref: str,
+    db: AsyncSession = Depends(get_db),
+    case_service: CaseService = Depends(get_case_service),
+    user: UserContext = Depends(get_user_context),
+):
+    from sqlalchemy import select
+    from backend.models import DepositCase
+
+    result = await db.execute(select(DepositCase.id).where(DepositCase.tracking_ref == tracking_ref))
+    case_id = result.scalar_one_or_none()
+    if not case_id:
+        raise HTTPException(status_code=404, detail="Case not found")
+    try:
+        return await case_service.get_case(case_id, user)
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+
+
 @router.patch("/{case_id}", response_model=DepositCaseResponse)
 async def update_case(
     case_id: str,

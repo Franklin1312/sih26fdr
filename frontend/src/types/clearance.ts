@@ -10,7 +10,7 @@ export interface ClearanceTaskResponse {
   clearance_type: ClearanceType
   assigned_to: string | null
   status: ClearanceStatus
-  evidence: string[] | null
+  evidence: string | null
   notes: string | null
   completed_at: string | null
   created_at: string
@@ -52,8 +52,7 @@ export interface ClearanceClaimRequest {
 }
 
 export interface ClearanceCompleteRequest {
-  evidence: string[]
-  notes?: string
+  notes: string
 }
 
 export interface ClearanceTaskDetail {
@@ -62,7 +61,7 @@ export interface ClearanceTaskDetail {
   clearance_type: ClearanceType
   assigned_to: string
   status: ClearanceStatus
-  evidence: string[] | null
+  evidence: string | null
   notes: string | null
   completed_at: string | null
   created_at: string
@@ -82,7 +81,7 @@ export interface ClearanceHistoryResponse {
     task_id: string
     clearance_type: ClearanceType
     status: ClearanceStatus
-    evidence: string[] | null
+    evidence: string | null
     notes: string | null
     completed_at: string | null
     officer_name: string | null

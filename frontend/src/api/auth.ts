@@ -1,5 +1,5 @@
 import { apiClient } from './core'
-import type { LoginRequest, TokenResponse, UserResponse, UserCreate, UserUpdate, PaginationParams, PaginatedResponse } from '../types/auth'
+import type { LoginRequest, TokenResponse, AuthenticatedUser, UserResponse, UserCreate, UserUpdate, PaginationParams, PaginatedResponse } from '../types/auth'
 
 export const authApi = {
   async login(credentials: LoginRequest): Promise<TokenResponse> {
@@ -20,7 +20,7 @@ export const authApi = {
     return response.data
   },
 
-  async getCurrentUser(): Promise<UserResponse> {
+  async getCurrentUser(): Promise<AuthenticatedUser> {
     const response = await apiClient.axios.get('/users/me')
     return response.data
   },

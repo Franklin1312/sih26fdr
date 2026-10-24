@@ -45,8 +45,10 @@ class DepositCase(Base):
     amount: Mapped[float] = mapped_column(nullable=False)
     currency: Mapped[str] = mapped_column(String(3), default="INR", nullable=False)
     instrument_number: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    instrument_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     issuing_bank: Mapped[str] = mapped_column(String(255), nullable=False)
     maturity_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    term_end_date: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
     aicte_clause_ref: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
 
     # Status workflow
@@ -54,7 +56,7 @@ class DepositCase(Base):
     previous_status: Mapped[Optional[CaseStatus]] = mapped_column(Enum(CaseStatus), nullable=True)
 
     # Metadata
-    is_demo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    is_demo: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     submitted_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -82,3 +84,8 @@ class DepositCase(Base):
 
     def __repr__(self) -> str:
         return f"<DepositCase(id={self.id}, ref={self.tracking_ref}, status={self.status})>"
+
+    @property
+    def case_number(self) -> str:
+        """Compatibility alias used by queue and release response schemas."""
+        return self.tracking_ref

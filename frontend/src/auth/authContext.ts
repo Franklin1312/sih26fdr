@@ -1,8 +1,8 @@
 import { createContext } from 'react'
-import type { UserResponse } from '../types/auth'
+import type { AuthenticatedUser } from '../types/auth'
 
 export interface AuthContextType {
-  user: UserResponse | null
+  user: AuthenticatedUser | null
   isLoading: boolean
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<void>

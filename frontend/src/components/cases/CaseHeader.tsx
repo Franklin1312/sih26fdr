@@ -9,10 +9,11 @@ interface CaseHeaderProps {
   caseData: DepositCaseDetail;
   onEdit?: () => void;
   onDownloadAll?: () => void;
+  onRequestRelease?: () => void;
   currentUserRole: string;
 }
 
-export function CaseHeader({ caseData, onEdit, onDownloadAll, currentUserRole }: CaseHeaderProps) {
+export function CaseHeader({ caseData, onEdit, onDownloadAll, onRequestRelease, currentUserRole }: CaseHeaderProps) {
   const isDraft = caseData.status === 'draft';
   const canEdit = isDraft && currentUserRole === 'institution_rep' && onEdit;
 
@@ -56,6 +57,12 @@ export function CaseHeader({ caseData, onEdit, onDownloadAll, currentUserRole }:
             <Button variant="outline" onClick={onEdit} className="gap-1">
               <Edit className="h-4 w-4" />
               Edit Case
+            </Button>
+          )}
+          {caseData.status === 'cleared' && currentUserRole === 'institution_rep' && onRequestRelease && (
+            <Button onClick={onRequestRelease} className="gap-1">
+              <FileText className="h-4 w-4" />
+              Request release/refund
             </Button>
           )}
           {onDownloadAll && (
