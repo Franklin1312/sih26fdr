@@ -1,0 +1,112 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Build & Distribution
+*.egg-info/
+dist/
+build/
+*.whl
+
+# Environment & Secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.crt
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+data/*.log
+data/uploads/
+data/audit_checkpoint_key.pem
+
+# IDE & Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Test artifacts
+.coverage.*
+coverage.xml
+*.prof
+
+# Type checking
+*.pyi
+
+# Temporary development files
+*.orig
+gen_*.py
+write_*.py
+test_write.txt
+simple_write.py
+
+# Frontend (React + Vite + TypeScript)
+# Dependencies
+frontend/node_modules/
+
+# Build output
+frontend/dist/
+frontend/build/
+
+# Vite
+frontend/.vite/
+
+# Environment files
+frontend/.env
+frontend/.env.local
+frontend/.env.*.local
+
+# IDE & Editor
+frontend/.vscode/
+frontend/.idea/
+
+# OS
+frontend/.DS_Store
+frontend/Thumbs.db
+
+# Logs
+frontend/*.log
+frontend/logs/
+frontend/build_output.txt
+
+# TypeScript
+frontend/*.tsbuildinfo
+
+# Test coverage
+frontend/coverage/
+
+# Temporary
+frontend/*.local
