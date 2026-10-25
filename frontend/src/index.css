@@ -1,0 +1,300 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Poppins:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------
+   SIH26265 Design Tokens — Government of India digital look & feel
+   Reference: National Internship Portal (AICTE) + india.gov.in
+   Deep Navy (authority) · Saffron (action) · India Green (compliance)
+   Gov Red (alerts / destructive) · Warm off-white canvas
+------------------------------------------------------------------- */
+@theme {
+  --font-sans: 'Noto Sans', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Poppins', 'Noto Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Navy — primary brand (aligned to the NIP header navy) */
+  --color-primary-50: #eef2fb;
+  --color-primary-100: #dce5f6;
+  --color-primary-200: #bccdec;
+  --color-primary-300: #90abdc;
+  --color-primary-400: #5f84c8;
+  --color-primary-500: #3a62ae;
+  --color-primary-600: #254a96;
+  --color-primary-700: #1b3a7c;
+  --color-primary-800: #152d63;
+  --color-primary-900: #0f2150;
+  --color-primary-950: #0a1638;
+
+  /* Existing pages use indigo / violet for accents — fold them into the navy ramp */
+  --color-indigo-50: #eef2fb;
+  --color-indigo-100: #dce5f6;
+  --color-indigo-200: #bccdec;
+  --color-indigo-300: #90abdc;
+  --color-indigo-400: #5f84c8;
+  --color-indigo-500: #3a62ae;
+  --color-indigo-600: #254a96;
+  --color-indigo-700: #1b3a7c;
+  --color-indigo-800: #152d63;
+  --color-indigo-900: #0f2150;
+  --color-indigo-950: #0a1638;
+  --color-violet-50: #eef2fb;
+  --color-violet-100: #dce5f6;
+  --color-violet-200: #bccdec;
+  --color-violet-300: #90abdc;
+  --color-violet-400: #5f84c8;
+  --color-violet-500: #3a62ae;
+  --color-violet-600: #254a96;
+  --color-violet-700: #1b3a7c;
+  --color-violet-800: #152d63;
+  --color-violet-900: #0f2150;
+
+  /* Saffron — call-to-action / accents */
+  --color-saffron-50: #fff6ed;
+  --color-saffron-100: #ffe9d2;
+  --color-saffron-200: #ffd0a1;
+  --color-saffron-300: #ffb066;
+  --color-saffron-400: #fa8c34;
+  --color-saffron-500: #f26a0f;
+  --color-saffron-600: #c94f08;
+  --color-saffron-700: #a53f0a;
+  --color-saffron-800: #85330f;
+  --color-saffron-900: #6c2c10;
+
+  /* India green — compliance / success */
+  --color-emerald-50: #eefaef;
+  --color-emerald-100: #d6f1d9;
+  --color-emerald-200: #b0e3b6;
+  --color-emerald-300: #7fd08b;
+  --color-emerald-400: #45b458;
+  --color-emerald-500: #1f9a38;
+  --color-emerald-600: #138808;
+  --color-emerald-700: #0f6e0a;
+  --color-emerald-800: #0d570c;
+  --color-emerald-900: #0b470c;
+
+  /* Gov red — alerts / destructive (india.gov.in search button) */
+  --color-rose-500: #e5243b;
+  --color-rose-600: #d11a2f;
+  --color-rose-700: #b01427;
+
+  /* Neutral slate */
+  --color-gray-50: #f8fafc;
+  --color-gray-100: #f1f5f9;
+  --color-gray-200: #e2e8f0;
+  --color-gray-300: #cbd5e1;
+  --color-gray-400: #94a3b8;
+  --color-gray-500: #64748b;
+  --color-gray-600: #475569;
+  --color-gray-700: #334155;
+  --color-gray-800: #1e293b;
+  --color-gray-900: #0f172a;
+
+  --color-surface: #ffffff;
+  --color-canvas: #f5f7fb;
+
+  /* Government portals use tighter, more formal corners */
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.625rem;
+  --radius-3xl: 0.875rem;
+
+  --shadow-card: 0 1px 2px 0 rgb(15 33 80 / 0.06), 0 1px 3px 0 rgb(15 33 80 / 0.05);
+  --shadow-card-hover: 0 8px 20px -6px rgb(15 33 80 / 0.14), 0 4px 8px -4px rgb(15 33 80 / 0.06);
+  --shadow-pop: 0 18px 36px -10px rgb(15 33 80 / 0.22), 0 8px 12px -6px rgb(15 33 80 / 0.08);
+  --shadow-glow: 0 0 0 3px rgba(242, 106, 15, 0.18);
+
+  --animate-slide-in: slide-in 0.18s ease-out both;
+}
+
+/* Layout metrics shared by the shell (utility strip + header) */
+:root {
+  --gov-strip-h: 36px;
+  --gov-header-h: 68px;
+  /* live height of the utility strip still visible (updated on scroll by <Layout />) */
+  --gov-strip-offset: 36px;
+}
+
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+  }
+  * {
+    border-color: var(--color-gray-200);
+  }
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-canvas);
+    /* soft saffron wash at the top, like the NIP hero */
+    background-image: linear-gradient(180deg, #fff4e8 0, rgba(255, 244, 232, 0) 340px);
+    background-repeat: no-repeat;
+    color: var(--color-gray-900);
+    line-height: 1.55;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
+  }
+  button:not(:disabled),
+  [role='button']:not([aria-disabled='true']),
+  [role='tab']:not(:disabled),
+  select {
+    cursor: pointer;
+  }
+  ::selection {
+    background: var(--color-saffron-200);
+    color: var(--color-primary-900);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-primary-600);
+    outline-offset: 2px;
+  }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #b4c0d6; border-radius: 9999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #8393b3; }
+}
+
+@layer components {
+  /* ---------- Buttons ---------- */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold
+      transition-all duration-200 cursor-pointer
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-2
+      disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98];
+  }
+  .btn-primary {
+    @apply bg-saffron-600 text-white shadow-sm hover:bg-saffron-700 hover:shadow-md;
+  }
+  .btn-secondary {
+    @apply bg-primary-50 text-primary-800 ring-1 ring-inset ring-primary-200 hover:bg-primary-100;
+  }
+  .btn-outline {
+    @apply border border-primary-800/30 bg-white text-primary-800 shadow-sm hover:bg-primary-50 hover:border-primary-700;
+  }
+  .btn-destructive {
+    @apply bg-rose-600 text-white shadow-sm hover:bg-rose-700;
+  }
+
+  /* ---------- Form controls ---------- */
+  .input {
+    @apply flex h-11 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900
+      shadow-sm transition-all duration-200
+      placeholder:text-gray-400
+      hover:border-gray-400
+      focus:outline-none focus:border-primary-600 focus:ring-4 focus:ring-primary-100
+      disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500;
+  }
+  textarea.input { @apply h-auto; }
+  .label { @apply text-sm font-semibold text-primary-900; }
+
+  /* ---------- Surfaces & Cards ---------- */
+  .card {
+    @apply rounded-xl border border-slate-200 bg-white shadow-[var(--shadow-card)] transition-all duration-200;
+  }
+  .glass-card {
+    @apply rounded-xl border border-slate-200 bg-white shadow-[var(--shadow-card)] transition-all duration-200;
+  }
+  .glass-card-hover {
+    @apply hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5 hover:border-primary-300;
+  }
+
+  /* ---------- Badges ---------- */
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset whitespace-nowrap;
+  }
+  .badge-primary { @apply bg-primary-50 text-primary-800 ring-primary-300/60; }
+  .badge-success { @apply bg-emerald-50 text-emerald-800 ring-emerald-300/70; }
+  .badge-warning { @apply bg-saffron-50 text-saffron-800 ring-saffron-300/70; }
+  .badge-destructive { @apply bg-rose-50 text-rose-700 ring-rose-300/60; }
+  .badge-gray { @apply bg-slate-100 text-slate-700 ring-slate-300/60; }
+
+  /* ---------- Page scaffolding ---------- */
+  .page-title {
+    @apply relative pb-2.5 text-2xl font-bold tracking-tight text-primary-900 sm:text-3xl font-display;
+  }
+  /* small saffron underline, as used for headings on india.gov.in */
+  .page-title::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 2.75rem;
+    height: 3px;
+    border-radius: 9999px;
+    background: var(--color-saffron-500);
+  }
+  .page-subtitle { @apply mt-1 text-sm text-gray-600 font-normal; }
+
+  /* ---------- Government chrome ---------- */
+  .gov-tricolor {
+    height: 4px;
+    background: linear-gradient(90deg, #ff9933 0 33.33%, #ffffff 33.33% 66.66%, #138808 66.66% 100%);
+    box-shadow: inset 0 -1px 0 rgb(15 33 80 / 0.08);
+  }
+  /* Subtle dotted texture as an overlay, so the element's own gradient is left intact */
+  .gov-hero-pattern {
+    position: relative;
+    isolation: isolate;
+  }
+  .gov-hero-pattern::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    border-radius: inherit;
+    background-image: radial-gradient(rgb(255 255 255 / 0.10) 1px, transparent 1.5px);
+    background-size: 18px 18px;
+  }
+}
+
+/* Animations */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slide-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes pulse-subtle { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+@keyframes ticker {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.animate-fade-in { animation: fade-in 0.25s ease-out both; }
+.animate-fade-up { animation: fade-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.animate-pulse-subtle { animation: pulse-subtle 3s ease-in-out infinite; }
+.animate-float { animation: float 4s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ------------------------------------------------------------------
+   Data tables: one consistent government-style header (navy + saffron rule)
+   across the shared <DataTable /> and the page-level tables inside <main>.
+   Unlayered on purpose so it wins over per-page utility classes.
+------------------------------------------------------------------- */
+main table > thead {
+  background-color: var(--color-primary-900);
+  border-bottom: 3px solid var(--color-saffron-500);
+}
+main table > thead th {
+  color: #ffffff;
+}
+main table > thead th:hover {
+  color: #ffffff;
+}
