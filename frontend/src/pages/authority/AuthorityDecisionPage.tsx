@@ -4,13 +4,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { releaseApi } from '../../api'
 import {
   formatCurrency,
-  formatDate,
-  getStatusLabel,
-  getStatusColor,
   getDepositTypeLabel,
-  getDepositMethodLabel,
 } from '../../utils/helpers'
-import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card'
 import { Modal } from '../../components/ui/Modal'
@@ -25,7 +20,6 @@ import {
   Building2,
   IndianRupee,
   FileText,
-  Calendar,
   ShieldCheck,
   ClipboardList,
   ChevronRight,
@@ -333,12 +327,11 @@ export function AuthorityDecisionPage() {
       </div>
 
       {/* Confirmation Modal */}
-      <Modal
-        isOpen={confirmOpen}
-        onClose={() => setConfirmOpen(false)}
-        title="Confirm Authority Decision"
-      >
-        <div className="space-y-4">
+      <Modal open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <Modal.Content>
+          <Modal.Header><Modal.Title>Confirm Authority Decision</Modal.Title></Modal.Header>
+          <Modal.Body>
+            <div className="space-y-4">
           {decisionOption && (
             <div className={`rounded-2xl ${decisionOption.bgColor} p-4 ring-1 ${decisionOption.borderColor}`}>
               <div className="flex items-center gap-2 mb-1">
@@ -366,7 +359,9 @@ export function AuthorityDecisionPage() {
               {decideMutation.isPending ? 'Submitting...' : 'Confirm Decision'}
             </Button>
           </div>
-        </div>
+            </div>
+          </Modal.Body>
+        </Modal.Content>
       </Modal>
     </>
   )

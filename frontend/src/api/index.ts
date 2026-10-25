@@ -8,4 +8,5 @@ export { releaseApi } from './release'
 export { institutionsApi } from './institutions'
 export { auditApi } from './audit'
 export { clarificationApi } from './clarification'
+export { reportsApi } from './reports'
 

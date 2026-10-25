@@ -8,13 +8,11 @@ import {
   Building2,
   ShieldCheck,
   ArrowLeft,
-  Calendar,
-  IndianRupee,
   FileText,
   HelpCircle,
 } from 'lucide-react'
 import { casesApi } from '../../api/cases'
-import { useAuth } from '../../contexts/AuthContext'
+import { useAuth } from '../../auth/useAuth'
 import type { DepositType, DepositMethod } from '../../types/case'
 import { formatCurrency } from '../../utils/helpers'
 
@@ -115,7 +113,7 @@ export const SubmitFDRPage: React.FC = () => {
 
       setSuccessResult({
         id: created.id,
-        tracking_ref: created.tracking_ref,
+        tracking_ref: created.tracking_ref ?? created.case_number,
       })
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to submit FDR record. Please verify fields.'

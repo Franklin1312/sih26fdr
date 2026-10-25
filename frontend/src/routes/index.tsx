@@ -11,6 +11,7 @@ import { InstitutionsPage, UsersPage, AuditLogPage } from '../pages/admin'
 import { InstitutionDashboardPage, MyDepositsPage, SubmitFDRPage } from '../pages/institution'
 import { AuthorityQueuePage, AuthorityDecisionPage } from '../pages/authority'
 import { SettingsPage } from '../pages/SettingsPage'
+import { ReportsPage } from '../pages/ReportsPage'
 
 export const router = createBrowserRouter([
   {
@@ -22,6 +23,7 @@ export const router = createBrowserRouter([
     children: [
       { path: '/', element: <DashboardPage /> },
       { path: '/dashboard', element: <DashboardPage /> },
+      { path: '/reports', element: <ReportsPage /> },
       { path: '/wizard/new', element: <WizardPage isNew /> },
       { path: '/wizard/:caseId/step1', element: <WizardPage /> },
       { path: '/wizard/:caseId/step2', element: <WizardPage /> },

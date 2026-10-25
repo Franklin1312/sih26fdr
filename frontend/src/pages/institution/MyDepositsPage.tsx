@@ -13,19 +13,16 @@ import {
 } from '../../utils/helpers'
 import { Badge } from '../../components/ui/Badge'
 import { Button } from '../../components/ui/Button'
-import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/Card'
+import { Card, CardContent } from '../../components/ui/Card'
 import type { DepositCaseResponse } from '../../types/case'
 import {
   FilePlus2,
   FileText,
   Calendar,
   AlertTriangle,
-  CheckCircle2,
   Clock,
   ChevronRight,
-  Building2,
   IndianRupee,
-  Landmark,
   Search,
   Filter,
   Download,
@@ -79,13 +76,8 @@ export function MyDepositsPage() {
 
   const { data, isLoading } = useQuery({
     queryKey: ['my-deposits', user?.institution_id],
-    queryFn: () => casesApi.list({ page: 1, page_size: 100, institution_id: user?.institution_id }),
+    queryFn: () => casesApi.list({ page: 1, page_size: 100, institution_id: user?.institution_id ?? undefined }),
     enabled: !!user?.institution_id,
-  })
-
-  const { data: stats } = useQuery({
-    queryKey: ['dashboard-stats'],
-    queryFn: () => casesApi.getDashboardStats(),
   })
 
   const cases: DepositCaseResponse[] = data?.items ?? []

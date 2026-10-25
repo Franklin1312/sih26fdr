@@ -2,17 +2,15 @@ import React, { useState } from 'react'
 import {
   Settings as SettingsIcon,
   Bell,
-  Database,
-  CheckCircle2,
   Clock,
+  CheckCircle2,
   ShieldCheck,
   Server,
   RefreshCw,
   KeyRound,
-  FileCheck2,
 } from 'lucide-react'
-import { useAuth } from '../../contexts/AuthContext'
-import { getRoleLabel } from '../../utils/helpers'
+import { useAuth } from '../auth/useAuth'
+import { getRoleLabel } from '../utils/helpers'
 
 export const SettingsPage: React.FC = () => {
   const { user } = useAuth()

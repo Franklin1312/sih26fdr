@@ -15,7 +15,7 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { casesApi } from '../../api/cases'
-import { useAuth } from '../../contexts/AuthContext'
+import { useAuth } from '../../auth/useAuth'
 import { formatCurrency, formatDate, getStatusColor, getStatusLabel } from '../../utils/helpers'
 
 export const InstitutionDashboardPage: React.FC = () => {

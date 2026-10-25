@@ -50,6 +50,28 @@ All demo users use password `demo12345`:
 4. Request release. For FDR/RPGF, the authority records authorization only after the prerequisite checklist passes, then records the simulated Approval Bureau NOC. For RTGS, the equivalent output is a simulated Council sanction order.
 5. Show the case audit trail and lifecycle dates. An authorization or output document is not a payment confirmation; the portal never claims that funds moved.
 
+## Reports and operational monitoring
+
+Authenticated users can open **Reports** from the sidebar. The report is scoped to
+the current persona and provides:
+
+- pending verification cases;
+- instruments maturing within 30 days;
+- cases without an uploaded evidence package;
+- cases requiring intervention, with the reason;
+- CSV export for offline review.
+
+The header notification bell shows live maturity, clarification, clearance, and
+discrepancy alerts. The demo bank-verification panel records a simulated
+independent bank response and marks amount or maturity discrepancies on the
+evidence record. It is intentionally not a connection to a real bank or SFMS
+endpoint.
+
+In production, refresh tokens are signed JWTs with a `refresh` token type and
+are rejected when expired, malformed, used as access tokens, or associated with
+an inactive user. Set strong `SECRET_KEY` and `JWT_SECRET` values, disable
+`DEMO_MODE`, and terminate TLS at the deployment edge.
+
 Use `python scripts\run_alerts.py` to run a simulated lifecycle alert scan. `python scripts\verify_audit.py` verifies the local audit chain.
 
 ## Checks

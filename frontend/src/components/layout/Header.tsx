@@ -1,4 +1,4 @@
-import { Bell, ChevronDown, LogOut, Sparkles, Building2, Search, Scale, Award, Shield, Check, Info, CheckCircle } from 'lucide-react'
+import { Bell, ChevronDown, LogOut, Sparkles, Check, Info, CheckCircle } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth } from '../../auth/useAuth'
@@ -6,22 +6,12 @@ import { getRoleLabel } from '../../utils/helpers'
 import { casesApi } from '../../api'
 import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom'
+import { DEMO_PERSONAS } from '../../constants/demoPersonas'
 
 function initials(name?: string) {
   if (!name) return '?'
   return name.split(' ').filter(Boolean).slice(0, 2).map((p) => p[0]!.toUpperCase()).join('')
 }
-
-const ROLES_LIST = [
-  { role: 'institution_rep', title: 'Rajesh Sharma (Inst Rep)', email: 'inst_rep_1@demo.example', icon: Building2, desc: 'Apex Institute of Technology' },
-  { role: 'institution_rep', title: 'Priya Nair (Inst Rep)', email: 'inst_rep_2@demo.example', icon: Building2, desc: 'National Medical College' },
-  { role: 'institution_rep', title: 'Suresh Kumar (Inst Rep)', email: 'inst_rep_3@demo.example', icon: Building2, desc: 'City Polytechnic Institute' },
-  { role: 'institution_rep', title: 'Anita Das (Inst Rep)', email: 'inst_rep_4@demo.example', icon: Building2, desc: 'Eastern Management School' },
-  { role: 'scrutiny_officer', title: 'Scrutiny Officer', email: 'scrutiny_1@demo.example', icon: Search, desc: 'Review & Deficiencies' },
-  { role: 'clearance_officer', title: 'Clearance Officer', email: 'clearance_1@demo.example', icon: Scale, desc: 'PGRC, Vigilance & Finance' },
-  { role: 'competent_authority', title: 'Competent Authority', email: 'authority_1@demo.example', icon: Award, desc: 'Approval Bureau NOC / Council' },
-  { role: 'system_admin', title: 'System Admin', email: 'admin_1@demo.example', icon: Shield, desc: 'Config & Audit Trail' },
-]
 
 export function Header() {
   const { user, login, logout } = useAuth()
@@ -55,14 +45,14 @@ export function Header() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  const handleQuickSwitch = async (email: string, title: string) => {
+  const handleQuickSwitch = async (persona: (typeof DEMO_PERSONAS)[number]) => {
     try {
       setShowRoleSwitcher(false)
-      await login(email, 'demo')
-      toast.success(`Switched role to ${title}`)
-      navigate('/dashboard')
+      await login(persona.email, 'demo')
+      toast.success(`Switched to ${persona.title}`)
+      navigate(persona.landingPath)
     } catch {
-      toast.error('Could not switch role')
+      toast.error(`Could not switch to ${persona.title}`)
     }
   }
 
@@ -99,19 +89,19 @@ export function Header() {
             </button>
 
             {showRoleSwitcher && (
-              <div className="animate-slide-in absolute right-0 z-50 mt-2 w-72 overflow-hidden rounded-2xl border border-slate-200 bg-white p-2 shadow-[var(--shadow-pop)]">
+              <div className="animate-slide-in absolute right-0 z-50 mt-2 max-h-[calc(100vh-5rem)] w-80 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-[var(--shadow-pop)]">
                 <div className="px-3 py-2 border-b border-slate-100 mb-1">
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Instant Role Switcher</p>
-                  <p className="text-[11px] text-slate-500">Switch personas without re-logging in</p>
+                  <p className="text-[11px] text-slate-500">One click changes the active demo account</p>
                 </div>
                 <div className="space-y-1">
-                  {ROLES_LIST.map((item) => {
+                  {DEMO_PERSONAS.map((item) => {
                     const Icon = item.icon
-                    const isCurrent = user?.role === item.role
+                    const isCurrent = user?.email === item.email
                     return (
                       <button
-                        key={item.role}
-                        onClick={() => handleQuickSwitch(item.email, item.title)}
+                        key={item.email}
+                        onClick={() => void handleQuickSwitch(item)}
                         className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs transition-colors ${
                           isCurrent
                             ? 'bg-primary-50 text-primary-800 font-semibold ring-1 ring-primary-200'
@@ -122,8 +112,8 @@ export function Header() {
                           <Icon className="h-3.5 w-3.5" />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium">{item.title}</p>
-                          <p className="text-[10px] text-slate-400 truncate">{item.desc}</p>
+                          <p className="truncate font-medium">{item.name}</p>
+                          <p className="text-[10px] text-slate-400 truncate">{item.title} · {item.description}</p>
                         </div>
                         {isCurrent && <Check className="h-3.5 w-3.5 text-primary-600 shrink-0" />}
                       </button>

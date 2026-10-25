@@ -2,6 +2,7 @@ from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from jose import JWTError
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.config import get_settings
 from backend.database import get_db
 from backend.models import User
-from backend.services.auth import auth_service, create_access_token, verify_password
+from backend.services.auth import create_access_token, decode_token, verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -57,7 +58,7 @@ async def login(
 @router.post("/refresh")
 async def refresh_token(request: RefreshRequest, db: AsyncSession = Depends(get_db)):
     if request.refresh_token.startswith("demo:refresh:"):
-        user_id = request.refresh_token.split("demo:refresh:")[-1]
+        user_id = request.refresh_token.removeprefix("demo:refresh:")
         result = await db.execute(select(User).where(User.id == user_id, User.is_active.is_(True)))
         user = result.scalar_one_or_none()
         if not user:
@@ -67,15 +68,24 @@ async def refresh_token(request: RefreshRequest, db: AsyncSession = Depends(get_
             "refresh_token": f"demo:refresh:{user.id}",
             "token_type": "bearer",
         }
+
     try:
-        current_user = await auth_service.get_current_user(f"Bearer {request.refresh_token}")
+        payload = decode_token(request.refresh_token)
+        if payload.get("token_type") != "refresh" or not payload.get("sub"):
+            raise ValueError("Invalid refresh token type")
+        result = await db.execute(
+            select(User).where(User.id == payload["sub"], User.is_active.is_(True))
+        )
+        user = result.scalar_one_or_none()
+        if not user:
+            raise ValueError("Inactive or unknown user")
         new_token = create_access_token(
-            current_user.id,
-            current_user.roles,
+            user.id,
+            [user.role.value],
             claims={
-                "email": current_user.email,
-                "full_name": current_user.full_name,
-                "institution_id": current_user.institution_id,
+                "email": user.email,
+                "full_name": user.full_name,
+                "institution_id": user.institution_id,
             },
         )
         return {
@@ -83,5 +93,5 @@ async def refresh_token(request: RefreshRequest, db: AsyncSession = Depends(get_
             "refresh_token": request.refresh_token,
             "token_type": "bearer",
         }
-    except Exception:
+    except (ValueError, JWTError):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")

@@ -188,9 +188,9 @@ export function ScrutinyCaseDetailPage() {
             caseId={caseId!}
             caseNumber={caseData.case_number}
             amount={caseData.amount}
-            issuingBank={caseData.issuing_bank}
+            issuingBank={caseData.issuing_bank ?? ''}
             instrumentNumber={caseData.instrument_number}
-            maturityDate={caseData.maturity_date}
+            maturityDate={caseData.maturity_date ?? undefined}
             evidenceList={caseData.documents || []}
             onVerificationComplete={async () => {
               const refreshed = await scrutinyApi.getCaseDetail(caseId!)

@@ -45,6 +45,8 @@ export type UserRole =
   | 'scrutiny_officer'
   | 'clearance_officer'
   | 'competent_authority'
+  | 'approval_bureau'
+  | 'council'
   | 'system_admin'
 
 export type User = UserResponse

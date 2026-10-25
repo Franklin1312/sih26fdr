@@ -17,6 +17,7 @@ import {
   FileText,
   Award,
   Landmark,
+  BarChart3,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -55,6 +56,12 @@ const navGroups: NavGroup[] = [
         label: 'Dashboard',
         path: '/dashboard',
         icon: LayoutDashboard,
+        roles: ['institution_rep', 'scrutiny_officer', 'clearance_officer', 'competent_authority', 'approval_bureau', 'council', 'system_admin'],
+      },
+      {
+        label: 'Reports',
+        path: '/reports',
+        icon: BarChart3,
         roles: ['institution_rep', 'scrutiny_officer', 'clearance_officer', 'competent_authority', 'approval_bureau', 'council', 'system_admin'],
       },
     ],

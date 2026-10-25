@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react'
-import { ShieldCheck, ShieldAlert, Key, Clock, User, ArrowRight, CheckCircle2, Copy, Check } from 'lucide-react'
+import { ShieldCheck, ShieldAlert, Key, Clock, User, Copy, Check } from 'lucide-react'
 import { auditApi, type AuditLogItem } from '../../api/audit'
 import { formatDate } from '../../utils/helpers'
 import { Badge } from '../ui/Badge'
-import { Button } from '../ui/Button'
 import { toast } from 'sonner'
 
 interface AuditTimelineProps {

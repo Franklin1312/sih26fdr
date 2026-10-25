@@ -12,7 +12,7 @@ from backend.services.auth import validate_startup_config as validate_auth_confi
 from backend.services.audit_service import audit_service
 from backend.services.access_control import access_control
 from backend.services.alert_scheduler import get_alert_scheduler
-from backend.routes import institutions, users, cases, evidence, wizard, clarification, scrutiny, clearance, release, auth, audit
+from backend.routes import institutions, users, cases, evidence, wizard, clarification, scrutiny, clearance, release, auth, audit, reports
 
 settings = get_settings()
 
@@ -387,6 +387,7 @@ app.include_router(scrutiny.router, prefix="/api/v1", tags=["scrutiny"])
 app.include_router(clearance.router, prefix="/api/v1", tags=["clearance"])
 app.include_router(release.router, prefix="/api/v1", tags=["release"])
 app.include_router(audit.router, prefix="/api/v1", tags=["audit"])
+app.include_router(reports.router, prefix="/api/v1", tags=["reports"])
 
 
 

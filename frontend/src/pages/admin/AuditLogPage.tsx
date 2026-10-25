@@ -6,15 +6,10 @@ import {
   Filter,
   CheckCircle2,
   RefreshCw,
-  Key,
-  Clock,
-  User,
   Copy,
   Check,
   ChevronLeft,
   ChevronRight,
-  Database,
-  ArrowRight,
 } from 'lucide-react'
 import { auditApi, type AuditLogItem, type ChainVerificationResult } from '../../api/audit'
 import { formatDate } from '../../utils/helpers'

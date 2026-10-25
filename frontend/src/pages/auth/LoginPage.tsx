@@ -11,17 +11,13 @@ import {
   CheckCircle2,
   ArrowRight,
   Sparkles,
-  Building2,
-  Search,
-  Scale,
-  Award,
-  Settings,
   Lock,
 } from 'lucide-react'
 import { Input } from '../../components/ui/Input'
 import { Button } from '../../components/ui/Button'
 import { useAuth } from '../../auth/useAuth'
 import { toast } from 'sonner'
+import { DEMO_PERSONAS, type DemoPersona } from '../../constants/demoPersonas'
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -30,63 +26,6 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>
 
-interface DemoPersona {
-  role: string
-  title: string
-  name: string
-  email: string
-  icon: typeof Building2
-  badgeColor: string
-  description: string
-}
-
-const DEMO_PERSONAS: DemoPersona[] = [
-  {
-    role: 'institution_rep',
-    title: 'Institution Representative',
-    name: 'Apex Institute of Technology',
-    email: 'inst_rep_1@demo.example',
-    icon: Building2,
-    badgeColor: 'bg-blue-50 text-blue-700 ring-blue-200',
-    description: 'Create deposit cases, upload FDR evidence, respond to queries',
-  },
-  {
-    role: 'scrutiny_officer',
-    title: 'Scrutiny Officer',
-    name: 'Scrutiny & Review Cell',
-    email: 'scrutiny_1@demo.example',
-    icon: Search,
-    badgeColor: 'bg-purple-50 text-purple-700 ring-purple-200',
-    description: 'Inspect documents, verify completeness, raise deficiencies',
-  },
-  {
-    role: 'clearance_officer',
-    title: 'Clearance Officer',
-    name: 'PGRC & Vigilance Bureau',
-    email: 'clearance_1@demo.example',
-    icon: Scale,
-    badgeColor: 'bg-amber-50 text-amber-800 ring-amber-200',
-    description: 'Record independent bureau clearances and audit notes',
-  },
-  {
-    role: 'competent_authority',
-    title: 'Competent Authority',
-    name: 'Approval Bureau / Council',
-    email: 'authority_1@demo.example',
-    icon: Award,
-    badgeColor: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-    description: 'Issue final Approval Bureau NOC or Council Sanction Order',
-  },
-  {
-    role: 'system_admin',
-    title: 'System Administrator',
-    name: 'Root Administrator',
-    email: 'admin_1@demo.example',
-    icon: Settings,
-    badgeColor: 'bg-slate-100 text-slate-700 ring-slate-200',
-    description: 'System health, tamper-evident audit logs, demo reset',
-  },
-]
 
 export function LoginPage() {
   const { login } = useAuth()
@@ -116,7 +55,7 @@ export function LoginPage() {
       try {
         await login(persona.email, 'demo')
         toast.success(`Signed in as ${persona.title}`)
-        navigate('/dashboard')
+        navigate(persona.landingPath)
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : 'Login failed'
         toast.error(message)
