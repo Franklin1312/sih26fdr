@@ -189,15 +189,9 @@ export function DashboardPage() {
   return (
     <div className="space-y-8 animate-fade-up">
       {/* Hero Welcome Banner */}
-<<<<<<< HEAD
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary-950 via-primary-900 to-primary-800 gov-hero-pattern border-b-4 border-saffron-500 p-6 sm:p-8 text-white shadow-xl">
         <div className="pointer-events-none absolute -right-10 -top-10 h-64 w-64 rounded-full bg-saffron-500/15 blur-3xl" />
         <div className="pointer-events-none absolute -left-10 -bottom-10 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
-=======
-      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 sm:p-8 text-white shadow-xl">
-        <div className="pointer-events-none absolute -right-10 -top-10 h-64 w-64 rounded-full bg-primary-500/20 blur-3xl" />
-        <div className="pointer-events-none absolute -left-10 -bottom-10 h-64 w-64 rounded-full bg-cyan-500/20 blur-3xl" />
->>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
 
         <div className="relative z-10 flex flex-wrap items-center justify-between gap-6">
           <div className="max-w-2xl">

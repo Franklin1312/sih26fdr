@@ -7,10 +7,7 @@ import { casesApi } from '../../api'
 import { toast } from 'sonner'
 import { useNavigate } from 'react-router-dom'
 import { DEMO_PERSONAS } from '../../constants/demoPersonas'
-<<<<<<< HEAD
 import { PortalLogo } from './PortalLogo'
-=======
->>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
 
 function initials(name?: string) {
   if (!name) return '?'
@@ -61,7 +58,6 @@ export function Header() {
   }
 
   return (
-<<<<<<< HEAD
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white shadow-[0_1px_0_rgb(15_33_80/0.04),0_6px_16px_-12px_rgb(15_33_80/0.25)]">
       <div className="flex h-[var(--gov-header-h)] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
         {/* Left Side: Portal identity (logo + ministry lockup) */}
@@ -80,35 +76,16 @@ export function Header() {
           <span className="hidden h-8 w-px bg-slate-200 xl:block" aria-hidden="true" />
           <div className="hidden xl:inline-flex items-center gap-1.5 rounded-full bg-saffron-50 px-2.5 py-1 text-[11px] font-semibold text-saffron-800 ring-1 ring-saffron-200">
             <span className="h-1.5 w-1.5 rounded-full bg-saffron-500" />
-=======
-    <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/80 backdrop-blur-md">
-      <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-        {/* Left Side: Context & Regulatory Badge */}
-        <div className="ml-12 flex items-center gap-3 lg:ml-0">
-          <div className="hidden sm:flex items-center gap-2">
-            <span className="font-display text-sm font-bold text-slate-900 tracking-tight">SIH26265</span>
-            <span className="text-slate-300">/</span>
-            <span className="text-xs font-medium text-slate-600">Deposit & FDR Portal</span>
-          </div>
-
-          <div className="hidden md:inline-flex items-center gap-1.5 rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold text-primary-700 ring-1 ring-primary-200/60">
-            <span className="h-1.5 w-1.5 rounded-full bg-primary-600" />
->>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
             AICTE Clause 6.46
           </div>
         </div>
 
         {/* Right Side: Quick Role Switcher, Notifications & User Menu */}
-<<<<<<< HEAD
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-=======
-        <div className="flex items-center gap-2 sm:gap-3">
->>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
           {/* Quick Role Switcher (Crucial for Demo Judges) */}
           <div className="relative" ref={roleRef}>
             <button
               onClick={() => setShowRoleSwitcher(!showRoleSwitcher)}
-<<<<<<< HEAD
               className="inline-flex items-center gap-1.5 rounded-full border border-primary-200 bg-primary-50 px-3.5 py-1.5 text-xs font-semibold text-primary-800 transition-all hover:bg-primary-100 hover:border-primary-300"
               title="Instant Role Switcher for Demos"
             >
@@ -120,19 +97,6 @@ export function Header() {
 
             {showRoleSwitcher && (
               <div className="animate-slide-in absolute right-0 z-50 mt-2 max-h-[calc(100vh-5rem)] w-80 overflow-y-auto rounded-xl border border-slate-200 border-t-[3px] border-t-saffron-500 bg-white p-2 shadow-[var(--shadow-pop)]">
-=======
-              className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50/70 px-3 py-1.5 text-xs font-semibold text-indigo-700 transition-all hover:bg-indigo-100 hover:border-indigo-300 shadow-2xs"
-              title="Instant Role Switcher for Demos"
-            >
-              <Sparkles className="h-3.5 w-3.5 text-indigo-600 animate-pulse" />
-              <span className="hidden sm:inline">Role:</span>
-              <span className="max-w-[120px] truncate">{user ? getRoleLabel(user.role) : 'Switch'}</span>
-              <ChevronDown className={`h-3 w-3 text-indigo-500 transition-transform ${showRoleSwitcher ? 'rotate-180' : ''}`} />
-            </button>
-
-            {showRoleSwitcher && (
-              <div className="animate-slide-in absolute right-0 z-50 mt-2 max-h-[calc(100vh-5rem)] w-80 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-[var(--shadow-pop)]">
->>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
                 <div className="px-3 py-2 border-b border-slate-100 mb-1">
                   <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Instant Role Switcher</p>
                   <p className="text-[11px] text-slate-500">One click changes the active demo account</p>
@@ -147,19 +111,11 @@ export function Header() {
                         onClick={() => void handleQuickSwitch(item)}
                         className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-left text-xs transition-colors ${
                           isCurrent
-<<<<<<< HEAD
                             ? 'bg-primary-50 text-primary-900 font-semibold ring-1 ring-primary-200'
                             : 'text-slate-700 hover:bg-slate-50'
                         }`}
                       >
                         <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${isCurrent ? 'bg-primary-800 text-white' : 'bg-slate-100 text-slate-600'}`}>
-=======
-                            ? 'bg-primary-50 text-primary-800 font-semibold ring-1 ring-primary-200'
-                            : 'text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${isCurrent ? 'bg-primary-600 text-white' : 'bg-slate-100 text-slate-600'}`}>
->>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
                           <Icon className="h-3.5 w-3.5" />
                         </div>
                         <div className="min-w-0 flex-1">
@@ -179,11 +135,7 @@ export function Header() {
           <div className="relative" ref={notifRef}>
             <button
               onClick={() => setShowNotifications(!showNotifications)}
-<<<<<<< HEAD
               className="relative flex h-9 w-9 items-center justify-center rounded-full text-primary-800 transition-colors hover:bg-primary-50 border border-slate-200"
-=======
-              className="relative flex h-9 w-9 items-center justify-center rounded-xl text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-900 border border-slate-200/70"
->>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
               aria-label="Notifications"
             >
               <Bell className="h-4 w-4" />
@@ -195,17 +147,10 @@ export function Header() {
             </button>
 
             {showNotifications && (
-<<<<<<< HEAD
               <div className="animate-slide-in absolute right-0 z-50 mt-2 w-84 sm:w-96 overflow-hidden rounded-xl border border-slate-200 border-t-[3px] border-t-saffron-500 bg-white shadow-[var(--shadow-pop)]">
                 <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 bg-primary-50/60">
                   <div className="flex items-center gap-2">
                     <p className="text-xs font-bold uppercase tracking-wider text-primary-900">Regulatory Alerts</p>
-=======
-              <div className="animate-slide-in absolute right-0 z-50 mt-2 w-84 sm:w-96 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[var(--shadow-pop)]">
-                <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3 bg-slate-50/50">
-                  <div className="flex items-center gap-2">
-                    <p className="text-xs font-bold uppercase tracking-wider text-slate-700">Regulatory Alerts</p>
->>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
                     <span className="text-[10px] text-slate-400">APH 6.46</span>
                   </div>
                   {alerts.length > 0 ? (
@@ -280,11 +225,7 @@ export function Header() {
                       setShowNotifications(false)
                       navigate('/my-cases')
                     }}
-<<<<<<< HEAD
                     className="text-xs font-bold text-primary-700 hover:text-saffron-700"
-=======
-                    className="text-xs font-bold text-primary-600 hover:text-primary-700"
->>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
                   >
                     View All Registered Cases &rarr;
                   </button>
@@ -299,15 +240,9 @@ export function Header() {
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setShowDropdown(!showDropdown)}
-<<<<<<< HEAD
               className="flex items-center gap-2.5 rounded-full p-1 pr-2.5 transition-colors hover:bg-primary-50"
             >
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-800 text-xs font-bold text-white ring-2 ring-saffron-400/80">
-=======
-              className="flex items-center gap-2.5 rounded-xl p-1.5 pr-2 transition-colors hover:bg-slate-100"
-            >
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-primary-600 to-indigo-600 text-xs font-bold text-white shadow-2xs">
->>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
                 {initials(user?.full_name)}
               </div>
               <div className="hidden text-left leading-tight sm:block">
@@ -318,11 +253,7 @@ export function Header() {
             </button>
 
             {showDropdown && (
-<<<<<<< HEAD
               <div className="animate-slide-in absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-xl border border-slate-200 border-t-[3px] border-t-saffron-500 bg-white py-1.5 shadow-[var(--shadow-pop)]">
-=======
-              <div className="animate-slide-in absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-slate-200 bg-white py-1.5 shadow-[var(--shadow-pop)]">
->>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
                 <div className="border-b border-slate-100 px-4 py-3">
                   <p className="text-xs font-bold text-slate-900">{user?.full_name}</p>
                   <p className="truncate text-[11px] text-slate-500">{user?.email}</p>

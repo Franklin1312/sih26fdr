@@ -44,13 +44,8 @@ function SortIcon({ direction }: { direction: 'asc' | 'desc' | null }) {
   if (direction === 'desc') return <ChevronDown className="h-4 w-4" />;
   return (
     <span className="flex flex-col">
-<<<<<<< HEAD
       <ChevronUp className="h-3 w-3 text-primary-300" />
       <ChevronDown className="h-3 w-3 text-primary-300 -mt-1" />
-=======
-      <ChevronUp className="h-3 w-3 text-gray-300" />
-      <ChevronDown className="h-3 w-3 text-gray-300 -mt-1" />
->>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
     </span>
   );
 }
@@ -94,17 +89,10 @@ export function DataTable<T extends object>({
       <div className={cn('data-table', className)}>
         <div className="overflow-x-auto">
           <table className="w-full" role="table">
-<<<<<<< HEAD
             <thead className="bg-primary-900">
               <tr>
                 {columns.map(col => (
                   <th key={col.key} className={cn('px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider', col.className)}>
-=======
-            <thead className="bg-gray-50">
-              <tr>
-                {columns.map(col => (
-                  <th key={col.key} className={cn('px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider', col.className)}>
->>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
                     {col.header}
                   </th>
                 ))}
@@ -141,31 +129,18 @@ export function DataTable<T extends object>({
         </div>
       )}
 
-<<<<<<< HEAD
       <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-[var(--shadow-card)]">
         <table className="w-full" role="table">
           <thead className="bg-primary-900 border-b-[3px] border-saffron-500">
-=======
-      <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-[var(--shadow-card)]">
-        <table className="w-full" role="table">
-          <thead className="bg-gray-50/80 border-b border-gray-200">
->>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
             <tr>
               {columns.map(col => (
                 <th
                   key={col.key}
                   className={cn(
-<<<<<<< HEAD
                     'px-4 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider',
                     col.align === 'center' && 'text-center',
                     col.align === 'right' && 'text-right',
                     col.sortable && sortable && 'cursor-pointer hover:bg-primary-800',
-=======
-                    'px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider',
-                    col.align === 'center' && 'text-center',
-                    col.align === 'right' && 'text-right',
-                    col.sortable && sortable && 'cursor-pointer hover:bg-gray-100',
->>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
                     col.className
                   )}
                   style={{ width: col.width }}
