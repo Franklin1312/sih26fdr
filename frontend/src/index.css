@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700&family=Poppins:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
 @import "tailwindcss";
 
@@ -78,6 +79,33 @@
   --color-rose-700: #b01427;
 
   /* Neutral slate */
+=======
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------
+   SIH26265 Design Tokens — Institutional Trust + Modern Glassmorphism
+   Vibrant Indigos, Electric Cyans, Emerald Compliance, Warm Slates
+------------------------------------------------------------------- */
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Plus Jakarta Sans', 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Refined Brand Palette */
+  --color-primary-50: #eef2ff;
+  --color-primary-100: #e0e7ff;
+  --color-primary-200: #c7d2fe;
+  --color-primary-300: #a5b4fc;
+  --color-primary-400: #818cf8;
+  --color-primary-500: #6366f1;
+  --color-primary-600: #4f46e5;
+  --color-primary-700: #4338ca;
+  --color-primary-800: #3730a3;
+  --color-primary-900: #312e81;
+
+  /* Neutral Slate */
+>>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
   --color-gray-50: #f8fafc;
   --color-gray-100: #f1f5f9;
   --color-gray-200: #e2e8f0;
@@ -90,6 +118,7 @@
   --color-gray-900: #0f172a;
 
   --color-surface: #ffffff;
+<<<<<<< HEAD
   --color-canvas: #f5f7fb;
 
   /* Government portals use tighter, more formal corners */
@@ -112,6 +141,18 @@
   --gov-header-h: 68px;
   /* live height of the utility strip still visible (updated on scroll by <Layout />) */
   --gov-strip-offset: 36px;
+=======
+  --color-canvas: #f8fafc;
+
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1.125rem;
+  --radius-3xl: 1.5rem;
+
+  --shadow-card: 0 1px 3px 0 rgb(15 23 42 / 0.05), 0 1px 2px -1px rgb(15 23 42 / 0.05);
+  --shadow-card-hover: 0 10px 25px -5px rgb(15 23 42 / 0.08), 0 8px 10px -6px rgb(15 23 42 / 0.04);
+  --shadow-pop: 0 20px 35px -10px rgb(15 23 42 / 0.15), 0 10px 10px -5px rgb(15 23 42 / 0.04);
+  --shadow-glow: 0 0 20px -3px rgba(79, 70, 229, 0.25);
+>>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
 }
 
 @layer base {
@@ -119,7 +160,10 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+<<<<<<< HEAD
     scroll-behavior: smooth;
+=======
+>>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
   }
   * {
     border-color: var(--color-gray-200);
@@ -127,15 +171,22 @@
   body {
     font-family: var(--font-sans);
     background-color: var(--color-canvas);
+<<<<<<< HEAD
     /* soft saffron wash at the top, like the NIP hero */
     background-image: linear-gradient(180deg, #fff4e8 0, rgba(255, 244, 232, 0) 340px);
     background-repeat: no-repeat;
+=======
+>>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
     color: var(--color-gray-900);
     line-height: 1.55;
   }
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
+<<<<<<< HEAD
     letter-spacing: -0.01em;
+=======
+    letter-spacing: -0.02em;
+>>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
   }
   button:not(:disabled),
   [role='button']:not([aria-disabled='true']),
@@ -144,6 +195,7 @@
     cursor: pointer;
   }
   ::selection {
+<<<<<<< HEAD
     background: var(--color-saffron-200);
     color: var(--color-primary-900);
   }
@@ -156,11 +208,37 @@
   ::-webkit-scrollbar-track { background: transparent; }
   ::-webkit-scrollbar-thumb { background: #b4c0d6; border-radius: 9999px; }
   ::-webkit-scrollbar-thumb:hover { background: #8393b3; }
+=======
+    background: var(--color-primary-200);
+    color: var(--color-primary-900);
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-primary-500);
+    outline-offset: 2px;
+  }
+
+  /* Custom Sleek Scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+>>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
 }
 
 @layer components {
   /* ---------- Buttons ---------- */
   .btn {
+<<<<<<< HEAD
     @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold
       transition-all duration-200 cursor-pointer
       focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-2
@@ -177,10 +255,29 @@
   }
   .btn-destructive {
     @apply bg-rose-600 text-white shadow-sm hover:bg-rose-700;
+=======
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold
+      transition-all duration-200 cursor-pointer
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2
+      disabled:opacity-50 disabled:pointer-events-none active:scale-[0.98];
+  }
+  .btn-primary {
+    @apply bg-gradient-to-r from-primary-600 to-indigo-600 text-white shadow-sm hover:from-primary-700 hover:to-indigo-700 hover:shadow-md;
+  }
+  .btn-secondary {
+    @apply bg-primary-50 text-primary-700 hover:bg-primary-100 hover:text-primary-800;
+  }
+  .btn-outline {
+    @apply border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50 hover:border-gray-400;
+  }
+  .btn-destructive {
+    @apply bg-gradient-to-r from-rose-600 to-red-600 text-white shadow-sm hover:from-rose-700 hover:to-red-700;
+>>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
   }
 
   /* ---------- Form controls ---------- */
   .input {
+<<<<<<< HEAD
     @apply flex h-11 w-full rounded-lg border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900
       shadow-sm transition-all duration-200
       placeholder:text-gray-400
@@ -209,11 +306,46 @@
   .badge-primary { @apply bg-primary-50 text-primary-800 ring-primary-300/60; }
   .badge-success { @apply bg-emerald-50 text-emerald-800 ring-emerald-300/70; }
   .badge-warning { @apply bg-saffron-50 text-saffron-800 ring-saffron-300/70; }
+=======
+    @apply flex h-11 w-full rounded-xl border border-gray-300 bg-white px-3.5 py-2.5 text-sm text-gray-900
+      shadow-sm transition-all duration-200
+      placeholder:text-gray-400
+      hover:border-gray-400
+      focus:outline-none focus:border-primary-500 focus:ring-4 focus:ring-primary-100/70
+      disabled:cursor-not-allowed disabled:bg-gray-50 disabled:text-gray-500;
+  }
+  textarea.input {
+    @apply h-auto;
+  }
+  .label {
+    @apply text-sm font-semibold text-gray-700;
+  }
+
+  /* ---------- Surfaces & Cards ---------- */
+  .card {
+    @apply rounded-2xl border border-slate-200/80 bg-white shadow-sm transition-all duration-200;
+  }
+  .glass-card {
+    @apply rounded-2xl border border-white/60 bg-white/80 backdrop-blur-md shadow-sm transition-all duration-200;
+  }
+  .glass-card-hover {
+    @apply hover:shadow-lg hover:-translate-y-0.5 hover:border-primary-200;
+  }
+
+  /* ---------- Badges (Pill + Ring + Soft Glow) ---------- */
+  .badge {
+    @apply inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold ring-1 ring-inset whitespace-nowrap;
+  }
+  .badge-primary { @apply bg-primary-50 text-primary-700 ring-primary-300/60; }
+  .badge-success { @apply bg-emerald-50 text-emerald-700 ring-emerald-300/60; }
+  .badge-warning { @apply bg-amber-50 text-amber-800 ring-amber-300/60; }
+>>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
   .badge-destructive { @apply bg-rose-50 text-rose-700 ring-rose-300/60; }
   .badge-gray { @apply bg-slate-100 text-slate-700 ring-slate-300/60; }
 
   /* ---------- Page scaffolding ---------- */
   .page-title {
+<<<<<<< HEAD
     @apply relative pb-2.5 text-2xl font-bold tracking-tight text-primary-900 sm:text-3xl font-display;
   }
   /* small saffron underline, as used for headings on india.gov.in */
@@ -249,6 +381,12 @@
     border-radius: inherit;
     background-image: radial-gradient(rgb(255 255 255 / 0.10) 1px, transparent 1.5px);
     background-size: 18px 18px;
+=======
+    @apply text-2xl font-bold tracking-tight text-gray-900 sm:text-3xl font-display;
+  }
+  .page-subtitle {
+    @apply mt-1 text-sm text-gray-500 font-normal;
+>>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
   }
 }
 
@@ -257,6 +395,7 @@
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
+<<<<<<< HEAD
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slide-in {
   from { opacity: 0; transform: translateY(-4px); }
@@ -267,6 +406,19 @@
 @keyframes ticker {
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
+=======
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+>>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
 }
 
 .animate-fade-in { animation: fade-in 0.25s ease-out both; }
@@ -282,6 +434,7 @@
     scroll-behavior: auto !important;
   }
 }
+<<<<<<< HEAD
 
 /* ------------------------------------------------------------------
    Data tables: one consistent government-style header (navy + saffron rule)
@@ -298,3 +451,5 @@ main table > thead th {
 main table > thead th:hover {
   color: #ffffff;
 }
+=======
+>>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438

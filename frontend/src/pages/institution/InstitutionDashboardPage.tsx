@@ -59,7 +59,11 @@ export const InstitutionDashboardPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Institution Banner */}
+<<<<<<< HEAD
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-primary-950 via-primary-900 to-primary-800 gov-hero-pattern border-b-4 border-saffron-500 p-6 text-white shadow-lg">
+=======
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-indigo-900 via-indigo-800 to-slate-900 p-6 text-white shadow-lg">
+>>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="space-y-1.5">
             <div className="flex items-center gap-2">

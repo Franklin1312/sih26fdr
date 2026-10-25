@@ -9,6 +9,7 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'md', isLoading, disabled, children, ...props }, ref) => {
+<<<<<<< HEAD
     const baseStyles = 'inline-flex items-center justify-center gap-1.5 font-medium transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-600 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none'
 
     const variants = {
@@ -17,12 +18,26 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       outline: 'border border-primary-800/30 bg-white text-primary-800 shadow-sm hover:bg-primary-50 hover:border-primary-700',
       destructive: 'bg-rose-600 text-white shadow-sm hover:bg-rose-700 active:bg-rose-800',
       ghost: 'bg-transparent text-primary-800 hover:bg-primary-50 hover:text-primary-900',
+=======
+    const baseStyles = 'inline-flex items-center justify-center gap-1.5 font-medium transition-all duration-200 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none'
+
+    const variants = {
+      primary: 'bg-primary-600 text-white shadow-sm hover:bg-primary-700 active:bg-primary-800',
+      secondary: 'bg-primary-50 text-primary-700 hover:bg-primary-100',
+      outline: 'border border-gray-300 bg-white text-gray-700 shadow-sm hover:bg-gray-50 hover:border-gray-400',
+      destructive: 'bg-red-600 text-white shadow-sm hover:bg-red-700 active:bg-red-800',
+      ghost: 'bg-transparent text-gray-600 hover:bg-gray-100 hover:text-gray-900',
+>>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
     }
 
     const sizes = {
       sm: 'h-8 px-3 text-xs rounded-lg',
       md: 'h-10 px-4 py-2 text-sm rounded-lg',
+<<<<<<< HEAD
       lg: 'h-12 px-6 text-base rounded-lg',
+=======
+      lg: 'h-12 px-6 text-base rounded-xl',
+>>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
     }
 
     return (

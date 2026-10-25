@@ -109,7 +109,11 @@ export function AuditLogPage() {
   return (
     <div className="space-y-6">
       {/* Top Banner */}
+<<<<<<< HEAD
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-2xl border border-slate-200 bg-gradient-to-r from-primary-950 via-primary-900 to-primary-800 gov-hero-pattern border-b-4 border-saffron-500 p-6 text-white shadow-md">
+=======
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 text-white shadow-md">
+>>>>>>> 567dfba31ed8304e11ace21d3a76eee734665438
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="flex h-6 w-6 items-center justify-center rounded-md bg-indigo-500/30 text-indigo-300 ring-1 ring-indigo-400/30">
