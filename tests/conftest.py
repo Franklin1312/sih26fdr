@@ -1,30 +1,23 @@
 """Pytest configuration and fixtures."""
 
 import asyncio
+from datetime import UTC
+
 import pytest
-import pytest_asyncio
+from httpx import AsyncClient
+from httpx._transports.asgi import ASGITransport
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
-from backend.config import Settings
 from backend.database import Base, get_db
 from backend.main import app
 from backend.models import (
+    DepositCase,
     Institution,
     User,
-    DepositCase,
-    DepositEvidence,
-    CaseEvent,
-    ClarificationRequest,
-    ClearanceTask,
-    ReleaseRequest,
-    LifecycleDate,
-    AuditLog,
 )
-from backend.models.enums import UserRole, DepositType, DepositMethod, CaseStatus
+from backend.models.enums import CaseStatus, DepositMethod, DepositType, UserRole
 from backend.services.auth import hash_password
-from httpx import AsyncClient
-from httpx._transports.asgi import ASGITransport
 
 
 @pytest.fixture(scope="session")
@@ -44,12 +37,12 @@ async def test_engine():
         poolclass=StaticPool,
         connect_args={"check_same_thread": False},
     )
-    
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    
+
     yield engine
-    
+
     await engine.dispose()
 
 
@@ -62,7 +55,7 @@ async def test_db(test_engine) -> AsyncSession:
         expire_on_commit=False,
         autoflush=False,
     )
-    
+
     async with async_session() as session:
         yield session
         await session.rollback()
@@ -73,15 +66,15 @@ async def client(test_db):
     """Create a test client with overridden database dependency."""
     def override_get_db():
         yield test_db
-    
+
     app.dependency_overrides[get_db] = override_get_db
-    
+
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
     ) as ac:
         yield ac
-    
+
     app.dependency_overrides.clear()
 
 
@@ -128,13 +121,13 @@ def demo_scrutiny_user():
 @pytest.fixture
 def demo_case(demo_institution, demo_user):
     """Create a demo deposit case."""
-    from datetime import datetime, timezone, timedelta
+    from datetime import datetime, timedelta
     from decimal import Decimal
     from uuid import uuid4
-    
+
     return DepositCase(
         id=str(uuid4()),
-        tracking_ref=f"FDR-TEST-{datetime.now(timezone.utc).strftime('%Y%m%d%H%M%S')}",
+        tracking_ref=f"FDR-TEST-{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}",
         institution_id=demo_institution.id,
         deposit_type=DepositType.FDR,
         deposit_method=DepositMethod.FDR_RPGF,
@@ -142,7 +135,7 @@ def demo_case(demo_institution, demo_user):
         currency="INR",
         instrument_number="FDR-TEST-001",
         issuing_bank="State Bank of India",
-        maturity_date=datetime.now(timezone.utc) + timedelta(days=30),
+        maturity_date=datetime.now(UTC) + timedelta(days=30),
         aicte_clause_ref="6.46",
         status=CaseStatus.DRAFT,
         is_demo=True,

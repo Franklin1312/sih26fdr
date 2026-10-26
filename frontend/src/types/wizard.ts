@@ -26,10 +26,11 @@ export interface WizardStep1Request {
   amount: string
   currency: string
   instrument_number: string
-  instrument_date: string
+  instrument_date?: string
   issuing_bank: string
   maturity_date?: string
   term_end_date?: string
+  aicte_clause_ref?: string
 }
 
 export interface WizardStep1Response {

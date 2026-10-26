@@ -12,10 +12,11 @@ interface CaseHeaderProps {
   onRenew?: () => void;
   onDownloadAll?: () => void;
   onRequestRelease?: () => void;
+  onViewTimeline?: () => void;
   currentUserRole: string;
 }
 
-export function CaseHeader({ caseData, onEdit, onRenew, onDownloadAll, onRequestRelease, currentUserRole }: CaseHeaderProps) {
+export function CaseHeader({ caseData, onEdit, onRenew, onDownloadAll, onRequestRelease, onViewTimeline, currentUserRole }: CaseHeaderProps) {
   const isDraft = caseData.status === 'draft';
   const canEdit = isDraft && currentUserRole === 'institution_rep' && onEdit;
   const canRenew = currentUserRole === 'institution_rep' && onRenew && caseData.status !== 'rejected' && caseData.status !== 'closed';
@@ -97,7 +98,11 @@ export function CaseHeader({ caseData, onEdit, onRenew, onDownloadAll, onRequest
             </Button>
           )}
           {caseData.status !== 'draft' && caseData.status !== 'rejected' && (
-            <Button variant="ghost" className="gap-1 text-gray-600 hover:text-gray-900">
+            <Button
+              variant="ghost"
+              onClick={onViewTimeline}
+              className="gap-1 text-gray-600 hover:text-gray-900 cursor-pointer"
+            >
               <FileText className="h-4 w-4" />
               View Timeline
             </Button>

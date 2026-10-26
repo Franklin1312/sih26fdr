@@ -110,11 +110,11 @@ export const casesApi = {
   // Download document
   async downloadDocument(documentId: string): Promise<Blob> {
     const { data } = await apiClient.axios.get(`/cases/evidence/${documentId}/download`)
-    const formData = new FormData()
-    formData.append('token', data.download_token)
-    const response = await apiClient.axios.post(`/cases/evidence/${documentId}/download`, formData, {
-      responseType: 'blob',
-    })
+    const response = await apiClient.axios.post(
+      `/cases/evidence/${documentId}/download`,
+      { token: data.download_token },
+      { responseType: 'blob' }
+    )
     return response.data
   },
 

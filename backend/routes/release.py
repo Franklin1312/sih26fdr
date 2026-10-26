@@ -73,6 +73,7 @@ def _require_route_authority(current_user, path: str) -> None:
         UserRole.COMPETENT_AUTHORITY not in current_user.roles
         and expected not in current_user.roles
         and additional_role not in current_user.roles
+        and UserRole.SYSTEM_ADMIN not in current_user.roles
     ):
         raise HTTPException(status_code=403, detail=f"Only {expected.value.replace('_', ' ')} can act on this route")
 
@@ -308,7 +309,7 @@ async def get_release_queue(
     db: AsyncSession = Depends(get_db),
 ):
     """Get release queue for the competent authority."""
-    if not ({UserRole.COMPETENT_AUTHORITY, UserRole.APPROVAL_BUREAU, UserRole.COUNCIL} & set(current_user.roles)):
+    if not ({UserRole.COMPETENT_AUTHORITY, UserRole.APPROVAL_BUREAU, UserRole.COUNCIL, UserRole.SYSTEM_ADMIN} & set(current_user.roles)):
         raise HTTPException(status_code=403, detail="Release authority access is required")
     
     review_statuses = [
@@ -595,7 +596,7 @@ async def decide_release(
     release_request.decision_reasoning = request.decision_reasoning
     release_request.checklist_data = request.checklist_data or {}
     release_request.decided_by = current_user.user_id
-    release_request.decided_at = func.now()
+    release_request.decided_at = datetime.now(timezone.utc)
     release_request.status = "decided"
     decision_checklist = _evaluate_release_checklist(case, release_request)
     

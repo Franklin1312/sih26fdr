@@ -63,24 +63,34 @@ async def get_scrutiny_queue(
     if not user.has_permission("case:read_assigned"):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied")
 
-    query_statuses = [CaseStatus.SUBMITTED, CaseStatus.UNDER_SCRUTINY]
+    query_statuses = [
+        CaseStatus.SUBMITTED,
+        CaseStatus.UNDER_SCRUTINY,
+        CaseStatus.CLARIFICATION_PENDING,
+    ]
 
-    stmt = select(DepositCase).where(
-        DepositCase.status.in_(query_statuses)
-    ).options(selectinload(DepositCase.institution))
+    stmt = select(DepositCase).options(selectinload(DepositCase.institution))
 
     if status_filter:
         try:
             filter_status = CaseStatus(status_filter)
             stmt = stmt.where(DepositCase.status == filter_status)
         except ValueError:
-            pass
+            stmt = stmt.where(DepositCase.status.in_(query_statuses))
+    else:
+        stmt = stmt.where(DepositCase.status.in_(query_statuses))
 
     stmt = stmt.where(
         or_(
-            DepositCase.status == CaseStatus.SUBMITTED,
+            DepositCase.status.in_([
+                CaseStatus.SUBMITTED,
+                CaseStatus.CLARIFICATION_PENDING,
+            ]),
             and_(
-                DepositCase.status == CaseStatus.UNDER_SCRUTINY,
+                DepositCase.status.in_([
+                    CaseStatus.UNDER_SCRUTINY,
+                    CaseStatus.CLEARANCE_QUEUE,
+                ]),
                 or_(
                     DepositCase.assigned_officer_id == user.user_id,
                     DepositCase.assigned_officer_id == None,
@@ -341,9 +351,13 @@ async def get_scrutiny_stats(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied")
 
     stats = await case_service.get_dashboard_stats(user)
+    total_assigned = stats.by_status.get("under_scrutiny", 0)
+    submitted_unassigned = stats.by_status.get("submitted", 0)
+    clarification_pending = stats.by_status.get("clarification_pending", 0)
     return {
-        "total_assigned": stats.by_status.get("under_scrutiny", 0),
-        "submitted_unassigned": stats.by_status.get("submitted", 0),
-        "clarification_pending": stats.by_status.get("clarification_pending", 0),
+        "total_assigned": total_assigned,
+        "submitted_unassigned": submitted_unassigned,
+        "clarification_pending": clarification_pending,
+        "queue_size": total_assigned + submitted_unassigned + clarification_pending,
         "total_cases": stats.total,
     }

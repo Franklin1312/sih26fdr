@@ -111,6 +111,8 @@ class AuthService:
             "inst_rep_1": UserRole.INSTITUTION_REP,
             "scrutiny_1": UserRole.SCRUTINY_OFFICER,
             "clearance_1": UserRole.CLEARANCE_OFFICER,
+            "clearance_2": UserRole.CLEARANCE_OFFICER,
+            "clearance_3": UserRole.CLEARANCE_OFFICER,
             "approval_bureau_1": UserRole.APPROVAL_BUREAU,
             "council_1": UserRole.COUNCIL,
             "authority_1": UserRole.COMPETENT_AUTHORITY,

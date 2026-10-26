@@ -4,14 +4,20 @@ import hashlib
 import json
 import logging
 import os
-from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any
-from uuid import uuid4
+from datetime import UTC, date, datetime
+from decimal import Decimal
+from enum import Enum
+from typing import Any, cast
+from uuid import UUID, uuid4
 
-from sqlalchemy import select, func
-from sqlalchemy.ext.asyncio import AsyncSession
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat, PrivateFormat, NoEncryption, load_pem_private_key
+from cryptography.hazmat.primitives.serialization import (
+    Encoding,
+    PublicFormat,
+    load_pem_private_key,
+)
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import get_settings
 from backend.models import AuditLog
@@ -26,7 +32,7 @@ CHECKPOINT_KEY_PATH = settings.audit_checkpoint_key_path
 
 class AuditService:
     def __init__(self):
-        self._checkpoint_key: Optional[Ed25519PrivateKey] = None
+        self._checkpoint_key: Ed25519PrivateKey | None = None
 
     async def initialize(self):
         key_path = os.path.expanduser(CHECKPOINT_KEY_PATH)
@@ -35,21 +41,57 @@ class AuditService:
             try:
                 with open(key_path, "rb") as f:
                     key_data = f.read()
-                self._checkpoint_key = load_pem_private_key(key_data, password=None)
-                logger.info("Loaded existing checkpoint key")
+                loaded_key = load_pem_private_key(key_data, password=None)
+                if isinstance(loaded_key, Ed25519PrivateKey):
+                    self._checkpoint_key = loaded_key
+                    logger.info("Loaded existing checkpoint key")
+                else:
+                    logger.warning("Existing checkpoint key is not Ed25519, generating new one")
+                    self._checkpoint_key = Ed25519PrivateKey.generate()
             except Exception as e:
                 logger.warning(f"Failed to load checkpoint key: {e}, generating new one")
                 self._checkpoint_key = Ed25519PrivateKey.generate()
         else:
             self._checkpoint_key = Ed25519PrivateKey.generate()
             os.makedirs(os.path.dirname(key_path), exist_ok=True)
-            from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, NoEncryption
+            from cryptography.hazmat.primitives.serialization import (
+                Encoding,
+                NoEncryption,
+                PrivateFormat,
+            )
             with open(key_path, "wb") as f:
                 f.write(self._checkpoint_key.private_bytes(Encoding.PEM, PrivateFormat.PKCS8, NoEncryption()))
         logger.info("Audit service initialized")
 
-    def _compute_hash(self, prev_hash: str, entity_type: str, entity_id: str, action: str, actor_id: str, old_values: Optional[dict], new_values: Optional[dict], timestamp: str) -> str:
-        data = f"{prev_hash}|{entity_type}|{entity_id}|{action}|{actor_id}|{json.dumps(old_values, sort_keys=True)}|{json.dumps(new_values, sort_keys=True)}|{timestamp}"
+    def _json_serializer(self, obj: Any) -> Any:
+        """Custom JSON serializer for non-serializable types."""
+        if isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+        if isinstance(obj, Decimal):
+            return float(obj)
+        if isinstance(obj, UUID):
+            return str(obj)
+        if isinstance(obj, Enum):
+            return obj.value
+        if isinstance(obj, (set, frozenset)):
+            return sorted(list(obj), key=str)
+        if isinstance(obj, (bytes, bytearray)):
+            return obj.hex()
+        if hasattr(obj, "model_dump") and callable(obj.model_dump):
+            return obj.model_dump()
+        if hasattr(obj, "__dict__"):
+            return obj.__dict__
+        return str(obj)
+
+    def _sanitize_json_dict(self, data: dict[str, Any] | None) -> dict[str, Any] | None:
+        """Convert non-JSON-serializable objects (datetime, UUID, Enum, etc.) to JSON-safe primitives."""
+        if data is None:
+            return None
+        res = json.loads(json.dumps(data, default=self._json_serializer))
+        return cast(dict[str, Any], res)
+
+    def _compute_hash(self, prev_hash: str, entity_type: str, entity_id: str, action: str, actor_id: str, old_values: dict | None, new_values: dict | None, timestamp: str) -> str:
+        data = f"{prev_hash}|{entity_type}|{entity_id}|{action}|{actor_id}|{json.dumps(old_values, sort_keys=True, default=self._json_serializer)}|{json.dumps(new_values, sort_keys=True, default=self._json_serializer)}|{timestamp}"
         return hashlib.sha256(data.encode()).hexdigest()
 
     def _format_timestamp(self, dt: datetime) -> str:
@@ -61,15 +103,17 @@ class AuditService:
         else:
             return dt.isoformat() + "Z"
 
-    async def log_event(self, db: AsyncSession, entity_type: str, entity_id: str, action: AuditAction, actor_id: str, old_values: Optional[dict] = None, new_values: Optional[dict] = None) -> AuditLog:
+    async def log_event(self, db: AsyncSession, entity_type: str, entity_id: str, action: AuditAction, actor_id: str, old_values: dict | None = None, new_values: dict | None = None) -> AuditLog:
         prev_result = await db.execute(select(AuditLog.hash).order_by(AuditLog.sequence.desc()).limit(1))
         prev_hash = prev_result.scalar() or "0" * 64
         seq_result = await db.execute(select(func.coalesce(func.max(AuditLog.sequence), 0)))
         sequence = (seq_result.scalar() or 0) + 1
-        timestamp_dt = datetime.now(timezone.utc).replace(microsecond=0)
+        timestamp_dt = datetime.now(UTC).replace(microsecond=0)
         timestamp = self._format_timestamp(timestamp_dt)
-        hash_value = self._compute_hash(prev_hash, entity_type, entity_id, action.value, actor_id, old_values, new_values, timestamp)
-        audit_log = AuditLog(id=str(uuid4()), entity_type=entity_type, entity_id=entity_id, action=action, actor_id=actor_id, old_values=old_values, new_values=new_values, timestamp=timestamp_dt, hash=hash_value, prev_hash=prev_hash, sequence=sequence)
+        sanitized_old = self._sanitize_json_dict(old_values)
+        sanitized_new = self._sanitize_json_dict(new_values)
+        hash_value = self._compute_hash(prev_hash, entity_type, entity_id, action.value, actor_id, sanitized_old, sanitized_new, timestamp)
+        audit_log = AuditLog(id=str(uuid4()), entity_type=entity_type, entity_id=entity_id, action=action, actor_id=actor_id, old_values=sanitized_old, new_values=sanitized_new, timestamp=timestamp_dt, hash=hash_value, prev_hash=prev_hash, sequence=sequence)
         if CHECKPOINT_INTERVAL > 0 and sequence % CHECKPOINT_INTERVAL == 0 and self._checkpoint_key:
             audit_log.is_checkpoint = True
             audit_log.checkpoint_signature = self._checkpoint_key.sign(hash_value.encode()).hex()
@@ -80,7 +124,7 @@ class AuditService:
         await db.flush()
         return audit_log
 
-    async def verify_chain(self, db: AsyncSession) -> Dict[str, Any]:
+    async def verify_chain(self, db: AsyncSession) -> dict[str, Any]:
         result = await db.execute(select(AuditLog).order_by(AuditLog.sequence.asc()))
         logs = result.scalars().all()
         if not logs:
@@ -102,17 +146,23 @@ class AuditService:
         chain_valid = len(tampered) == 0
         return {"chain_valid": chain_valid, "total_records": len(logs), "verified_records": verified, "first_hash": logs[0].hash, "last_hash": logs[-1].hash, "tampered_records": tampered, "message": "Chain is valid" if chain_valid else f"Chain compromised: {len(tampered)} tampered record(s)"}
 
-    async def get_events(self, db: AsyncSession, entity_type: Optional[str] = None, entity_id: Optional[str] = None, action: Optional[AuditAction] = None, actor_id: Optional[str] = None, date_from: Optional[datetime] = None, date_to: Optional[datetime] = None, limit: int = 50, offset: int = 0) -> List[AuditLog]:
+    async def get_events(self, db: AsyncSession, entity_type: str | None = None, entity_id: str | None = None, action: AuditAction | None = None, actor_id: str | None = None, date_from: datetime | None = None, date_to: datetime | None = None, limit: int = 50, offset: int = 0) -> list[AuditLog]:
         query = select(AuditLog).order_by(AuditLog.sequence.desc())
-        if entity_type: query = query.where(AuditLog.entity_type == entity_type)
-        if entity_id: query = query.where(AuditLog.entity_id == entity_id)
-        if action: query = query.where(AuditLog.action == action)
-        if actor_id: query = query.where(AuditLog.actor_id == actor_id)
-        if date_from: query = query.where(AuditLog.timestamp >= date_from)
-        if date_to: query = query.where(AuditLog.timestamp <= date_to)
+        if entity_type:
+            query = query.where(AuditLog.entity_type == entity_type)
+        if entity_id:
+            query = query.where(AuditLog.entity_id == entity_id)
+        if action:
+            query = query.where(AuditLog.action == action)
+        if actor_id:
+            query = query.where(AuditLog.actor_id == actor_id)
+        if date_from:
+            query = query.where(AuditLog.timestamp >= date_from)
+        if date_to:
+            query = query.where(AuditLog.timestamp <= date_to)
         query = query.limit(limit).offset(offset)
         result = await db.execute(query)
-        return result.scalars().all()
+        return list(result.scalars().all())
 
     async def count_events(self, db: AsyncSession) -> int:
         result = await db.execute(select(func.count(AuditLog.id)))

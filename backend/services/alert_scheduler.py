@@ -1,19 +1,21 @@
 """Alert Scheduler Service - Automated lifecycle date monitoring and notifications."""
 
 import logging
-from datetime import datetime, timezone, timedelta
-from typing import List, Optional, Dict, Any
+from datetime import UTC, datetime, timedelta
+from typing import Any, cast
+
+from apscheduler.job import Job
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from sqlalchemy import select, and_
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.config import get_settings
 from backend.database import get_db_context
-from backend.models import LifecycleDate, DepositCase, Institution
-from backend.models.enums import LifecycleDateType, AuditAction
-from backend.services.rule_engine import get_rule_engine
+from backend.models import DepositCase, Institution, LifecycleDate
+from backend.models.enums import AuditAction, LifecycleDateType
 from backend.services.audit_service import audit_service
+from backend.services.rule_engine import get_rule_engine
 
 settings = get_settings()
 logger = logging.getLogger("sih26psfdr.alert_scheduler")
@@ -64,7 +66,7 @@ class AlertSchedulerService:
 
     async def _check_and_send_alerts(self, db: AsyncSession) -> int:
         """Check for due alerts and send them (internal method with db session)."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         lead_days = self.rule_engine.get_alert_advance_days()
         dedupe_hours = self.rule_engine.get_alert_dedupe_hours()
 
@@ -138,7 +140,7 @@ class AlertSchedulerService:
                     amount=f"{case.amount:,.2f}" if case.amount else "N/A",
                 )
 
-                logger.info(f"ALERT TRIGGERED:")
+                logger.info("ALERT TRIGGERED:")
                 logger.info(f"  Case: {case.tracking_ref}")
                 logger.info(f"  Institution: {institution.name if institution else 'Unknown'}")
                 logger.info(f"  Date Type: {ld.date_type.value}")
@@ -193,10 +195,10 @@ class AlertSchedulerService:
         async with get_db_context() as db:
             return await self._check_and_send_alerts(db)
 
-    def get_status(self) -> Dict[str, Any]:
+    def get_status(self) -> dict[str, Any]:
         """Get scheduler status."""
-        jobs = []
-        for job in self.scheduler.get_jobs():
+        jobs: list[dict[str, Any]] = []
+        for job in cast(list[Job], self.scheduler.get_jobs()):
             jobs.append({
                 "id": job.id,
                 "name": job.name,
@@ -210,7 +212,7 @@ class AlertSchedulerService:
 
 
 # Module-level singleton
-_alert_scheduler: Optional[AlertSchedulerService] = None
+_alert_scheduler: AlertSchedulerService | None = None
 
 
 def get_alert_scheduler() -> AlertSchedulerService:

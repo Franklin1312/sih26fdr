@@ -4,11 +4,10 @@ import logging
 import re
 import subprocess
 from pathlib import Path
-from typing import List, Optional, Tuple
 
-from PIL import Image, ImageEnhance
 import pytesseract
 from pdf2image import convert_from_path
+from PIL import Image, ImageEnhance
 
 from backend.config import get_settings
 
@@ -18,7 +17,7 @@ logger = logging.getLogger("sih26psfdr.ocr")
 
 class OCRService:
     """Service for extracting text from images and PDFs using Tesseract OCR.
-    
+
     All OCR results are ADVISORY ONLY - never used for automatic decisions.
     Human reviewers must explicitly acknowledge any findings.
     """
@@ -56,7 +55,7 @@ class OCRService:
             image = image.resize((int(w*scale), int(h*scale)), Image.Resampling.LANCZOS)
         return image
 
-    async def extract_text(self, file_path: Path) -> Tuple[str, float]:
+    async def extract_text(self, file_path: Path) -> tuple[str, float]:
         if not self.is_available():
             logger.warning("OCR unavailable")
             return "", 0.0
@@ -78,7 +77,7 @@ class OCRService:
             logger.error(f"OCR failed: {e}")
             return "", 0.0
 
-    async def extract_from_pdf(self, file_path: Path) -> List[Tuple[str, float]]:
+    async def extract_from_pdf(self, file_path: Path) -> list[tuple[str, float]]:
         if not self.is_available():
             return []
         try:
@@ -105,27 +104,29 @@ class OCRService:
 
     def extract_structured_data(self, text: str) -> dict:
         extracted = {"dates": [], "amounts": [], "references": [], "raw_text": text[:5000]}
-        
+
         for pat in [r'\b(\d{1,2}[-/]\d{1,2}[-/]\d{2,4})\b', r'\b(\d{4}[-/]\d{1,2}[-/]\d{1,2})\b', r'\b(\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{2,4})\b']:
             extracted["dates"].extend(re.findall(pat, text, re.IGNORECASE))
-        
+
         for pat in [r'(?:Rs\.?|INR|₹)\s*([\d,]+\.?\d*)', r'([\d,]+\.?\d*)\s*(?:Rs\.?|INR|₹)', r'\b(\d{1,3}(?:,\d{3})*(?:\.\d{2})?)\b']:
             for m in re.findall(pat, text, re.IGNORECASE):
                 try:
                     v = float(m.replace(',', ''))
-                    if v > 0: extracted["amounts"].append(v)
-                except: pass
-        
+                    if v > 0:
+                        extracted["amounts"].append(v)
+                except Exception:
+                    pass
+
         for pat in [r'\b([A-Z]{2,5}[-/]\d{4,6}[-/]\d{3,8})\b', r'\b([A-Z]{3,6}\d{6,10})\b', r'\b(?:UTR|Ref|Reference)[:#\s]*([A-Z0-9]{10,})\b']:
             extracted["references"].extend(re.findall(pat, text, re.IGNORECASE))
-        
+
         extracted["dates"] = list(set(extracted["dates"]))
         extracted["amounts"] = list(set(extracted["amounts"]))
         extracted["references"] = list(set(extracted["references"]))
         return extracted
 
 
-_ocr_service: Optional[OCRService] = None
+_ocr_service: OCRService | None = None
 
 
 def get_ocr_service() -> OCRService:

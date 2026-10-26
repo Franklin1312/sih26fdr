@@ -194,7 +194,7 @@ export function AuthorityQueuePage() {
                   <th className="whitespace-nowrap px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-slate-500">Amount</th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">Status</th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">Deadline</th>
-                  <th className="px-4 py-3" />
+                  <th className="whitespace-nowrap px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-slate-500">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -233,10 +233,10 @@ export function AuthorityQueuePage() {
                           <span className="text-xs text-slate-400">—</span>
                         )}
                       </td>
-                      <td className="px-4 py-3.5">
+                      <td className="px-4 py-3.5 text-right">
                         <Link
                           to={`/authority/cases/${item.case_id}`}
-                          className="flex items-center gap-1 text-xs font-bold text-violet-600 hover:text-violet-800 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap"
+                          className="inline-flex items-center gap-1 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-violet-700 transition-colors whitespace-nowrap"
                         >
                           Review <ChevronRight className="h-3.5 w-3.5" />
                         </Link>

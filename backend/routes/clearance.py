@@ -3,7 +3,7 @@
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status, Header
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -28,6 +28,7 @@ from backend.models.enums import (
 from backend.schemas.clearance import (
     ClearanceClaimRequest,
     ClearanceCompleteRequest,
+    ClearanceHistoryItem,
     ClearanceHistoryResponse,
     ClearanceQueueItem,
     ClearanceQueueResponse,
@@ -60,22 +61,36 @@ async def get_clearance_queue(
     case_service: CaseService = Depends(get_case_service),
     db: AsyncSession = Depends(get_db),
 ):
-    """Get clearance queue for the current clearance officer."""
-    if UserRole.CLEARANCE_OFFICER not in current_user.roles:
+    """Get clearance queue for the current clearance officer.
+    
+    Returns cases in CLEARANCE_QUEUE status that have at least one
+    clearance task assigned to the authenticated officer.
+    """
+    if not ({UserRole.CLEARANCE_OFFICER, UserRole.SYSTEM_ADMIN} & set(current_user.roles)):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only clearance officers can access clearance queue"
+            detail="Only clearance officers and system administrators can access clearance queue"
         )
     
-    query = select(DepositCase).where(
-        and_(
-            DepositCase.status == CaseStatus.CLEARANCE_QUEUE,
-            or_(
-                DepositCase.assigned_officer_id == current_user.user_id,
-                DepositCase.assigned_officer_id.is_(None),
-            ),
+    # Subquery: case IDs where THIS officer has a task
+    from sqlalchemy import exists
+    from backend.models.entities_clarification import ClearanceTask as CT
+    
+    if UserRole.SYSTEM_ADMIN in current_user.roles:
+        query = select(DepositCase).where(DepositCase.status == CaseStatus.CLEARANCE_QUEUE)
+    else:
+        officer_has_task = (
+            select(CT.case_id)
+            .where(CT.assigned_to == current_user.user_id)
+            .correlate(DepositCase)
+            .exists()
         )
-    )
+        query = select(DepositCase).where(
+            and_(
+                DepositCase.status == CaseStatus.CLEARANCE_QUEUE,
+                officer_has_task,
+            )
+        )
     
     # Browser filter controls submit an empty string for "All statuses".
     # Parse it explicitly rather than letting FastAPI turn it into a 422.
@@ -101,7 +116,8 @@ async def get_clearance_queue(
     
     items = []
     for case in cases:
-        tasks = [t for t in case.clearances if t.assigned_to == current_user.user_id]
+        # Only expose THIS officer's own tasks in the queue item (or all tasks for system admin).
+        tasks = case.clearances if UserRole.SYSTEM_ADMIN in current_user.roles else [t for t in case.clearances if t.assigned_to == current_user.user_id]
         items.append(ClearanceQueueItem(
             case_id=case.id, case_number=case.case_number,
             institution_name=case.institution.name if case.institution else "Unknown",
@@ -119,8 +135,8 @@ async def get_clearance_case_detail(
     case_id: str, current_user=Depends(get_current_user), db: AsyncSession = Depends(get_db),
 ):
     """Get case detail with all clearance tasks for the officer."""
-    if UserRole.CLEARANCE_OFFICER not in current_user.roles:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only clearance officers can access clearance cases")
+    if not ({UserRole.CLEARANCE_OFFICER, UserRole.SYSTEM_ADMIN} & set(current_user.roles)):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only clearance officers and system administrators can access clearance cases")
     
     query = select(DepositCase).where(DepositCase.id == case_id).options(
         selectinload(DepositCase.clearances).selectinload(ClearanceTask.assigned_to_user),
@@ -130,11 +146,10 @@ async def get_clearance_case_detail(
     case = result.scalar_one_or_none()
     
     if not case: raise HTTPException(status_code=404, detail="Case not found")
-    if case.assigned_officer_id != current_user.user_id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not assigned to this case")
     
+    # Access is granted if this officer has at least one task on the case.
     tasks = [t for t in case.clearances if t.assigned_to == current_user.user_id]
-    if not tasks: raise HTTPException(status_code=404, detail="No clearance tasks assigned to you for this case")
+    if not tasks: raise HTTPException(status_code=403, detail="No clearance tasks assigned to you for this case")
     
     task = tasks[0]
     return ClearanceTaskDetail(
@@ -158,7 +173,11 @@ async def claim_clearance_case(
     case_service: CaseService = Depends(get_case_service),
     db: AsyncSession = Depends(get_db),
 ):
-    """Claim a clearance case (assign self as officer)."""
+    """Open a clearance case task assigned to the current officer.
+    
+    Each officer only sees and acts on their own task(s) for the case.
+    Tasks belonging to other officers are not modified.
+    """
     if UserRole.CLEARANCE_OFFICER not in current_user.roles:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only clearance officers can claim cases")
     
@@ -170,15 +189,10 @@ async def claim_clearance_case(
     if case.status != CaseStatus.CLEARANCE_QUEUE:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Case is not in clearance queue (status: {case.status.value})")
     
-    if case.assigned_officer_id and case.assigned_officer_id != current_user.user_id:
-        raise HTTPException(status_code=403, detail="Case has already been claimed by another officer")
-    if not case.clearances:
-        raise HTTPException(status_code=409, detail="Case has no clearance tasks")
-    case.assigned_officer_id = current_user.user_id
-    for task in case.clearances:
-        task.assigned_to = current_user.user_id
-    
-    await db.flush()
+    # Find only the tasks assigned to THIS officer
+    my_tasks = [t for t in case.clearances if t.assigned_to == current_user.user_id]
+    if not my_tasks:
+        raise HTTPException(status_code=403, detail="No clearance tasks are assigned to you for this case")
     
     await audit_service.log_event(
         db=db, entity_type="deposit_case", entity_id=case_id,
@@ -186,8 +200,17 @@ async def claim_clearance_case(
         new_values={"case_number": case.case_number},
     )
     
-    task = case.clearances[0] if case.clearances else None
-    if not task: raise HTTPException(status_code=404, detail="No clearance tasks found")
+    task = my_tasks[0]
+    
+    # Reload institution for the response
+    case_result = await db.execute(
+        select(DepositCase).where(DepositCase.id == case_id).options(
+            selectinload(DepositCase.institution),
+        )
+    )
+    case = case_result.scalar_one_or_none()
+    if not case:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
     
     return ClearanceTaskDetail(
         id=task.id, case_id=task.case_id, clearance_type=task.clearance_type,

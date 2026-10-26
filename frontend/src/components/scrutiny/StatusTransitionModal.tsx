@@ -15,8 +15,15 @@ interface StatusTransitionModalProps {
 
 const STATUS_TRANSITIONS: Record<string, string[]> = {
   submitted: ['under_scrutiny', 'rejected'],
-  under_scrutiny: ['clarification_pending', 'clearance_queue', 'rejected'],
+  under_scrutiny: ['clearance_queue', 'clarification_pending', 'rejected'],
   clarification_pending: ['under_scrutiny', 'rejected'],
+};
+
+const STATUS_TRANSITION_LABELS: Record<string, string> = {
+  under_scrutiny: 'Under Scrutiny (Start Officer Review)',
+  clearance_queue: 'Clearance Queue (All Good — Pass Scrutiny & Forward to Clearance Officer)',
+  clarification_pending: 'Clarification Pending (Request Clarification from Institution)',
+  rejected: 'Rejected (Reject Deposit Submission)',
 };
 
 export function StatusTransitionModal({
@@ -62,7 +69,10 @@ export function StatusTransitionModal({
               label="New Status"
               value={newStatus}
               onChange={(e) => setNewStatus(e.target.value)}
-              options={availableTransitions.map((s) => ({ value: s, label: s.replace(/_/g, ' ') }))}
+              options={availableTransitions.map((s) => ({
+                value: s,
+                label: STATUS_TRANSITION_LABELS[s] || s.replace(/_/g, ' '),
+              }))}
               placeholder="Select new status"
               required
             />

@@ -32,10 +32,11 @@ const step1Schema = z.object({
   amount: z.string().min(1).refine(val => parseFloat(val) > 0, 'Amount must be > 0'),
   currency: z.string().min(1),
   instrument_number: z.string().min(1),
-  instrument_date: z.string().min(1),
+  instrument_date: z.string().optional(),
   issuing_bank: z.string().min(1),
   maturity_date: z.string().optional(),
   term_end_date: z.string().optional(),
+  aicte_clause_ref: z.string().optional(),
 }).refine(data => {
   if (['fdr', 'rpgf'].includes(data.deposit_type) && !data.maturity_date) return false;
   return true;
@@ -76,6 +77,7 @@ export function Step1Form({
       issuing_bank: initialData?.issuing_bank || '',
       maturity_date: initialData?.maturity_date || '',
       term_end_date: initialData?.term_end_date || '',
+      aicte_clause_ref: initialData?.aicte_clause_ref || '',
     },
     mode: 'onChange',
   });
@@ -91,7 +93,20 @@ export function Step1Form({
   }, [depositType, depositMethod, showMaturityDate, showTermEndDate, setValue]);
 
   const handleFormSubmit = async (data: Step1FormData) => {
-    await onSubmit(data as WizardStep1Request);
+    // Filter out empty strings for optional fields to avoid Pydantic validation errors
+    const submitData: WizardStep1Request = {
+      deposit_type: data.deposit_type,
+      deposit_method: data.deposit_method,
+      amount: data.amount,
+      currency: data.currency,
+      instrument_number: data.instrument_number,
+      instrument_date: data.instrument_date || undefined,
+      issuing_bank: data.issuing_bank,
+      maturity_date: data.maturity_date || undefined,
+      term_end_date: data.term_end_date || undefined,
+      aicte_clause_ref: data.aicte_clause_ref || undefined,
+    };
+    await onSubmit(submitData);
   };
 
   return (
@@ -174,6 +189,16 @@ export function Step1Form({
             {...register('issuing_bank')}
             error={formErrors.issuing_bank?.message}
           />
+        </div>
+        <div>
+          <label htmlFor="aicte_clause_ref" className="label">AICTE Clause Reference</label>
+          <Input
+            id="aicte_clause_ref"
+            placeholder="e.g., AICTE/2024/Cl-XX"
+            {...register('aicte_clause_ref')}
+            error={formErrors.aicte_clause_ref?.message}
+          />
+          <p className="mt-1 text-xs text-gray-500">Optional: Reference to AICTE clause if applicable</p>
         </div>
       </div>
 

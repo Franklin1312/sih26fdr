@@ -53,7 +53,9 @@ async def lifespan(app: FastAPI):
         UserResponse(id="inst_rep_3", email="inst_rep_3@demo.example", full_name="Suresh Kumar", role=UserRole.INSTITUTION_REP, institution_id="inst_3", is_active=True, created_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc)),
         UserResponse(id="inst_rep_4", email="inst_rep_4@demo.example", full_name="Anita Das", role=UserRole.INSTITUTION_REP, institution_id="inst_4", is_active=True, created_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc)),
         UserResponse(id="scrutiny_1", email="scrutiny_1@demo.example", full_name="Scrutiny Officer 1", role=UserRole.SCRUTINY_OFFICER, is_active=True, created_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc)),
-        UserResponse(id="clearance_1", email="clearance_1@demo.example", full_name="Clearance Officer 1", role=UserRole.CLEARANCE_OFFICER, is_active=True, created_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc)),
+        UserResponse(id="clearance_1", email="clearance_1@demo.example", full_name="PGRC Officer", role=UserRole.CLEARANCE_OFFICER, is_active=True, created_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc)),
+        UserResponse(id="clearance_2", email="clearance_2@demo.example", full_name="Vigilance Officer", role=UserRole.CLEARANCE_OFFICER, is_active=True, created_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc)),
+        UserResponse(id="clearance_3", email="clearance_3@demo.example", full_name="Technical Cell Officer", role=UserRole.CLEARANCE_OFFICER, is_active=True, created_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc)),
         UserResponse(id="authority_1", email="authority_1@demo.example", full_name="Competent Authority 1", role=UserRole.COMPETENT_AUTHORITY, is_active=True, created_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc)),
         UserResponse(id="approval_bureau_1", email="approval_bureau_1@demo.example", full_name="Approval Bureau 1", role=UserRole.APPROVAL_BUREAU, is_active=True, created_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc)),
         UserResponse(id="council_1", email="council_1@demo.example", full_name="Council Authority 1", role=UserRole.COUNCIL, is_active=True, created_at=datetime.now(timezone.utc), updated_at=datetime.now(timezone.utc)),
@@ -165,7 +167,9 @@ async def create_demo_data():
             ("inst_rep_3", "inst_rep_3@demo.example", "Suresh Kumar", UserRole.INSTITUTION_REP, "inst_3"),
             ("inst_rep_4", "inst_rep_4@demo.example", "Anita Das", UserRole.INSTITUTION_REP, "inst_4"),
             ("scrutiny_1", "scrutiny_1@demo.example", "Scrutiny Officer 1", UserRole.SCRUTINY_OFFICER, None),
-            ("clearance_1", "clearance_1@demo.example", "Clearance Officer 1", UserRole.CLEARANCE_OFFICER, None),
+            ("clearance_1", "clearance_1@demo.example", "PGRC Officer", UserRole.CLEARANCE_OFFICER, None),
+            ("clearance_2", "clearance_2@demo.example", "Vigilance Officer", UserRole.CLEARANCE_OFFICER, None),
+            ("clearance_3", "clearance_3@demo.example", "Technical Cell Officer", UserRole.CLEARANCE_OFFICER, None),
             ("approval_bureau_1", "approval_bureau_1@demo.example", "Approval Bureau 1", UserRole.APPROVAL_BUREAU, None),
             ("council_1", "council_1@demo.example", "Council Authority 1", UserRole.COUNCIL, None),
             ("authority_1", "authority_1@demo.example", "Competent Authority 1", UserRole.COMPETENT_AUTHORITY, None),
@@ -341,7 +345,10 @@ async def create_demo_data():
             ("ev_demo_005", "case_demo_005", "bank_endorsement", "Axis_Bank_Endorsement_9999.pdf", 220000, "inst_rep_1", "AXIS/FDR/2024/99999", 500000.0, False),
             ("ev_demo_006", "case_demo_006", "rpgf_deed", "SBI_RPGF_Security_Deed.pdf", 410000, "inst_rep_2", "SBI/RPGF/2023/55678", 600000.0, False),
         ]
+        from backend.services.file_storage import get_file_storage
+        file_storage_svc = get_file_storage()
         for evid, cid, dtype, fname, fsize, uploader, inst_no, amt, verified in demo_evidences:
+            file_storage_svc.ensure_demo_file(f"demo/{fname}", fname, cid)
             ev = await db.get(DepositEvidence, evid)
             if not ev:
                 db.add(DepositEvidence(

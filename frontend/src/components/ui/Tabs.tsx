@@ -17,7 +17,7 @@ function useTabsContext() {
 }
 
 interface TabsRootProps {
-  defaultValue: string;
+  defaultValue?: string;
   value?: string;
   onValueChange?: (value: string) => void;
   children: ReactNode;
@@ -25,11 +25,12 @@ interface TabsRootProps {
 }
 
 export function TabsRoot({ defaultValue, value, onValueChange, children, className }: TabsRootProps) {
-  const [activeTab, setActiveTab] = useState(value ?? defaultValue);
+  const [internalTab, setInternalTab] = useState(defaultValue ?? value ?? '');
+  const activeTab = value !== undefined ? value : internalTab;
 
   const handleSetActiveTab = (tab: string) => {
     if (value === undefined) {
-      setActiveTab(tab);
+      setInternalTab(tab);
     }
     onValueChange?.(tab);
   };
@@ -71,6 +72,7 @@ export function TabsTrigger({ value, children, disabled = false, className }: Ta
 
   return (
     <button
+      type="button"
       role="tab"
       aria-selected={isActive}
       aria-controls={`panel-${value}`}

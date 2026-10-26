@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { X, RefreshCw, AlertCircle, Calendar, ArrowRight, ShieldCheck } from 'lucide-react';
 import { Button } from '../ui/Button';
@@ -19,6 +20,20 @@ export function RenewFDRModal({ caseData, isOpen, onClose, onSuccess }: RenewFDR
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const orig = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = orig || 'unset';
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [isOpen, onClose]);
 
   // Form state pre-populated with parent instrument
   const [instrumentNumber, setInstrumentNumber] = useState('');
@@ -85,9 +100,17 @@ export function RenewFDRModal({ caseData, isOpen, onClose, onSuccess }: RenewFDR
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="relative bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="relative bg-white rounded-2xl max-w-2xl w-full shadow-2xl border border-gray-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
         {/* Modal Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-blue-50/60 to-indigo-50/60">
           <div className="flex items-center gap-3">
@@ -257,6 +280,7 @@ export function RenewFDRModal({ caseData, isOpen, onClose, onSuccess }: RenewFDR
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

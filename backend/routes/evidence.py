@@ -3,7 +3,7 @@ import io
 
 from datetime import datetime, timezone
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Header
+from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Header, Request, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from uuid import uuid4
@@ -250,7 +250,7 @@ async def upload_evidence(
         file_size=evidence.file_size,
         mime_type=evidence.mime_type,
         version=evidence.version,
-        file_hash=evidence.file_hash,
+        file_hash=evidence.file_hash or "",
         uploaded_by=evidence.uploaded_by,
         created_at=evidence.created_at,
         replaced_id=replaced_id,
@@ -306,6 +306,7 @@ async def list_evidence(
                 original_filename=e.original_filename,
                 file_size=e.file_size,
                 mime_type=e.mime_type,
+                file_path=e.file_path,
                 version=e.version,
                 file_hash=e.file_hash,
                 uploaded_by=e.uploaded_by,
@@ -337,6 +338,8 @@ async def get_evidence(
     # Verify case access
     case_result = await db.execute(select(DepositCase).where(DepositCase.id == evidence.case_id))
     case = case_result.scalar_one_or_none()
+    if not case:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
     require_evidence_access(user, case, "evidence:read")
     if evidence.is_deleted:
         raise HTTPException(status_code=404, detail="Evidence not found")
@@ -348,6 +351,7 @@ async def get_evidence(
         original_filename=evidence.original_filename,
         file_size=evidence.file_size,
         mime_type=evidence.mime_type,
+        file_path=evidence.file_path,
         version=evidence.version,
         file_hash=evidence.file_hash,
         uploaded_by=evidence.uploaded_by,
@@ -367,17 +371,21 @@ async def get_download_token(
     """Generate a secure download token for an evidence file."""
     result = await db.execute(select(DepositEvidence).where(DepositEvidence.id == evidence_id))
     evidence = result.scalar_one_or_none()
-    if not evidence:
+    if not evidence or evidence.is_deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evidence not found")
     
     # Verify case access
     case_result = await db.execute(select(DepositCase).where(DepositCase.id == evidence.case_id))
     case = case_result.scalar_one_or_none()
+    if not case:
+        raise HTTPException(status_code=404, detail="Case not found")
     require_evidence_access(user, case, "evidence:read")
-    if evidence.is_deleted:
-        raise HTTPException(status_code=404, detail="Evidence not found")
     
-    # Verify file exists
+    # Verify file exists on disk (synthesizing synthetic demo document if needed)
+    if not file_storage.file_exists(evidence.file_path):
+        if evidence.is_demo or evidence.file_path.startswith("demo/"):
+            file_storage.ensure_demo_file(evidence.file_path, evidence.original_filename, evidence.case_id)
+            
     if not file_storage.file_exists(evidence.file_path):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found on disk")
     
@@ -406,39 +414,71 @@ async def get_download_token(
 @router.post("/{evidence_id}/download")
 async def download_evidence(
     evidence_id: str,
-    token: str = Form(...),
+    request: Request,
+    token: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     user: UserContext = Depends(get_user_context),
     file_storage = Depends(get_file_storage_service),
 ):
-    """Download an evidence file using a secure token."""
-    # Verify token
-    relative_path = file_storage.verify_download_token(token, user.user_id)
-    if not relative_path:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired download token")
-    
+    """Download an evidence file using a secure token or active session."""
+    download_token = token
+    if not download_token:
+        try:
+            content_type = request.headers.get("content-type", "").lower()
+            if "application/json" in content_type:
+                body = await request.json()
+                if isinstance(body, dict):
+                    download_token = body.get("token")
+            elif "form" in content_type:
+                form = await request.form()
+                download_token = form.get("token")
+            else:
+                try:
+                    body = await request.json()
+                    if isinstance(body, dict):
+                        download_token = body.get("token")
+                except Exception:
+                    form = await request.form()
+                    download_token = form.get("token")
+        except Exception:
+            pass
+
     # Get evidence record
     result = await db.execute(select(DepositEvidence).where(DepositEvidence.id == evidence_id))
     evidence = result.scalar_one_or_none()
-    if not evidence or evidence.file_path != relative_path or evidence.is_deleted:
+    if not evidence or evidence.is_deleted:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Evidence not found")
+
     case_result = await db.execute(select(DepositCase).where(DepositCase.id == evidence.case_id))
     case = case_result.scalar_one_or_none()
     if not case:
         raise HTTPException(status_code=404, detail="Case not found")
     require_evidence_access(user, case, "evidence:read")
-    
-    # Verify file exists
-    file_path = file_storage.get_file_path(relative_path)
-    if not file_path.exists():
+
+    # If token was provided, verify it
+    if download_token:
+        relative_path = file_storage.verify_download_token(download_token, user.user_id)
+        if not relative_path:
+            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired download token")
+        if relative_path != evidence.file_path:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Token does not match requested evidence")
+
+    # Verify file exists on disk (synthesizing synthetic demo document if needed)
+    if not file_storage.file_exists(evidence.file_path):
+        if evidence.is_demo or evidence.file_path.startswith("demo/"):
+            file_storage.ensure_demo_file(evidence.file_path, evidence.original_filename, evidence.case_id)
+
+    if not file_storage.file_exists(evidence.file_path):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="File not found on disk")
-    
+
+    file_path = file_storage.get_file_path(evidence.file_path)
+
     # Return file response
     from fastapi.responses import FileResponse
     return FileResponse(
         path=str(file_path),
         filename=evidence.original_filename,
-        media_type=evidence.mime_type,
+        media_type=evidence.mime_type or "application/octet-stream",
     )
 
 
@@ -555,7 +595,7 @@ async def replace_evidence(
         file_size=new_evidence.file_size,
         mime_type=new_evidence.mime_type,
         version=new_evidence.version,
-        file_hash=new_evidence.file_hash,
+        file_hash=new_evidence.file_hash or "",
         uploaded_by=new_evidence.uploaded_by,
         previous_version_id=existing.id,
         created_at=new_evidence.created_at,
@@ -578,6 +618,8 @@ async def delete_evidence(
     # Verify case access
     case_result = await db.execute(select(DepositCase).where(DepositCase.id == evidence.case_id))
     case = case_result.scalar_one_or_none()
+    if not case:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
     require_evidence_access(user, case, "evidence:delete_own")
     
     # Only allow delete in draft/submitted states

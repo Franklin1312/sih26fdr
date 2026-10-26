@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { cn } from '../../utils/helpers';
 import { Button } from './Button';
@@ -33,32 +34,44 @@ export function ModalRoot({ open, onOpenChange, children, className }: ModalRoot
     };
     if (open) {
       document.addEventListener('keydown', handleEscape);
+      const originalOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
+      return () => {
+        document.removeEventListener('keydown', handleEscape);
+        document.body.style.overflow = originalOverflow || 'unset';
+      };
     }
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
-    };
   }, [open, close]);
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <ModalContext.Provider value={{ close }}>
-      <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div
+        className="fixed inset-0 z-50 overflow-y-auto"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modal-title"
+      >
         <div
-          className="fixed inset-0 bg-gray-900/40 backdrop-blur-[2px] animate-fade-in"
+          className="fixed inset-0 bg-gray-900/50 backdrop-blur-[2px] animate-fade-in transition-opacity"
           onClick={close}
           aria-hidden="true"
         />
-        <div className={cn(
-          'fixed inset-0 z-50 flex items-center justify-center p-4',
-          className
-        )}>
+        <div
+          className={cn(
+            'min-h-full flex items-center justify-center p-4 relative z-10',
+            className
+          )}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) close();
+          }}
+        >
           {children}
         </div>
       </div>
-    </ModalContext.Provider>
+    </ModalContext.Provider>,
+    document.body
   );
 }
 
@@ -84,6 +97,7 @@ export function ModalContent({ children, className, size = 'md' }: ModalContentP
         sizeClasses[size],
         className
       )}
+      onClick={(e) => e.stopPropagation()}
     >
       {children}
     </div>

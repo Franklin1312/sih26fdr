@@ -41,7 +41,7 @@ export function CaseDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'verification' | 'lifecycle' | 'documents' | 'timeline' | 'clarifications' | 'clearances'
+    'overview' | 'lineage' | 'verification' | 'lifecycle' | 'documents' | 'timeline' | 'clarifications' | 'clearances'
   >('overview');
   const [viewerDoc, setViewerDoc] = useState<DepositEvidenceResponse | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
@@ -191,6 +191,7 @@ export function CaseDetailPage() {
         onEdit={handleEdit}
         onRenew={() => setRenewModalOpen(true)}
         onRequestRelease={handleRequestRelease}
+        onViewTimeline={() => setActiveTab('timeline')}
         currentUserRole={currentUserRole}
       />
 

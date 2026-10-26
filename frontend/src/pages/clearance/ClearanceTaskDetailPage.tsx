@@ -18,9 +18,11 @@ const TASK_STATUS_CONFIG: Record<string, { variant: 'default' | 'success' | 'war
 };
 
 const CLEARANCE_TYPE_LABELS: Record<string, string> = {
+  pgrc: 'PGRC (Public Grievance)',
+  vigilance: 'Vigilance',
   financial: 'Financial',
   legal: 'Legal',
-  technical: 'Technical',
+  technical: 'Technical Cell',
   environmental: 'Environmental',
 };
 

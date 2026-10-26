@@ -1,30 +1,28 @@
 """Wizard Service - Multi-step submission flow."""
 
 import logging
-from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from backend.models import (
-    DepositCase,
-    Institution,
-    User,
-    DepositEvidence,
     CaseEvent,
+    DepositCase,
+    DepositEvidence,
+    Institution,
 )
 from backend.models.enums import (
-    CaseStatus,
-    DepositType,
-    DepositMethod,
     AuditAction,
+    CaseStatus,
+    DepositMethod,
+    DepositType,
 )
-from backend.services.validation import validation_engine, ValidationResult
+from backend.services.access_control import UserContext, access_control
 from backend.services.audit_service import audit_service
-from backend.services.access_control import access_control, UserContext
+from backend.services.validation import ValidationResult, validation_engine
 
 logger = logging.getLogger("sih26psfdr.wizard")
 
@@ -43,7 +41,7 @@ class WizardService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def get_case_for_wizard(self, case_id: str, user: UserContext) -> Optional[DepositCase]:
+    async def get_case_for_wizard(self, case_id: str, user: UserContext) -> DepositCase | None:
         """Get case for wizard, checking permissions."""
         case = await self.db.get(DepositCase, case_id)
         if not case:
@@ -105,7 +103,7 @@ class WizardService:
 
         return case
 
-    async def validate_step1(self, case_id: str, data: Dict[str, Any], user: UserContext) -> ValidationResult:
+    async def validate_step1(self, case_id: str, data: dict[str, Any], user: UserContext) -> ValidationResult:
         """Validate and save Step 1: Case Details."""
         case = await self.get_case_for_wizard(case_id, user)
         if not case:
@@ -122,15 +120,36 @@ class WizardService:
         case.amount = data["amount"]
         case.currency = data.get("currency", "INR")
         case.instrument_number = data["instrument_number"]
-        case.instrument_date = datetime.fromisoformat(data["instrument_date"].replace("Z", "+00:00")) if data.get("instrument_date") else None
+
+        # Handle datetime fields - Pydantic may have already parsed them
+        instrument_date = data.get("instrument_date")
+        if instrument_date:
+            if isinstance(instrument_date, str):
+                case.instrument_date = datetime.fromisoformat(instrument_date.replace("Z", "+00:00"))
+            else:
+                case.instrument_date = instrument_date
+        else:
+            case.instrument_date = None
+
         case.issuing_bank = data["issuing_bank"]
 
-        if data.get("maturity_date"):
-            from datetime import datetime
-            case.maturity_date = datetime.fromisoformat(data["maturity_date"].replace("Z", "+00:00"))
+        maturity_date = data.get("maturity_date")
+        if maturity_date:
+            if isinstance(maturity_date, str):
+                case.maturity_date = datetime.fromisoformat(maturity_date.replace("Z", "+00:00"))
+            else:
+                case.maturity_date = maturity_date
 
         case.aicte_clause_ref = data.get("aicte_clause_ref")
-        case.term_end_date = datetime.fromisoformat(data["term_end_date"].replace("Z", "+00:00")) if data.get("term_end_date") else None
+
+        term_end_date = data.get("term_end_date")
+        if term_end_date:
+            if isinstance(term_end_date, str):
+                case.term_end_date = datetime.fromisoformat(term_end_date.replace("Z", "+00:00"))
+            else:
+                case.term_end_date = term_end_date
+        else:
+            case.term_end_date = None
 
         await self.db.flush()
 
@@ -145,7 +164,7 @@ class WizardService:
 
         return ValidationResult(is_valid=True)
 
-    async def validate_step2(self, case_id: str, data: Dict[str, Any], user: UserContext) -> ValidationResult:
+    async def validate_step2(self, case_id: str, data: dict[str, Any], user: UserContext) -> ValidationResult:
         """Validate and save Step 2: Documents."""
         case = await self.get_case_for_wizard(case_id, user)
         if not case:
@@ -168,7 +187,7 @@ class WizardService:
         return result
 
     async def validate_step3(
-        self, case_id: str, data: Dict[str, Any], user: UserContext
+        self, case_id: str, data: dict[str, Any], user: UserContext
     ) -> ValidationResult:
         """Validate Step 3: Review & Completeness Check (PS-03)."""
         case = await self.get_case_for_wizard(case_id, user)
@@ -183,7 +202,8 @@ class WizardService:
         # Fetch uploaded documents
         stmt = select(DepositEvidence).where(
             DepositEvidence.case_id == case_id,
-            DepositEvidence.is_deleted == False,
+            DepositEvidence.is_deleted.is_(False),
+            DepositEvidence.replaced_by_id.is_(None),
         )
         result_docs = await self.db.execute(stmt)
         documents = result_docs.scalars().all()
@@ -194,7 +214,7 @@ class WizardService:
         ]
 
         # Get institution for conditional checks
-        institution = await self.db.get(Institution, case.institution_id)
+        await self.db.get(Institution, case.institution_id)
 
         # Run completeness check (PS-03)
         completeness = validation_engine.validate_case_completeness(
@@ -280,7 +300,8 @@ class WizardService:
         # Transition to SUBMITTED
         old_status = case.status
         case.status = CaseStatus.SUBMITTED
-        case.submitted_at = datetime.now(timezone.utc)
+        submitted_at = datetime.now(UTC)
+        case.submitted_at = submitted_at
 
         await self.db.flush()
 
@@ -296,7 +317,7 @@ class WizardService:
             action=AuditAction.STATUS_CHANGE,
             actor_id=user.user_id,
             old_values={"status": old_status.value},
-            new_values={"status": CaseStatus.SUBMITTED.value, "submitted_at": case.submitted_at.isoformat()},
+            new_values={"status": CaseStatus.SUBMITTED.value, "submitted_at": submitted_at.isoformat()},
         )
 
         # Log case event
@@ -312,7 +333,7 @@ class WizardService:
 
         return case
 
-    async def get_wizard_state(self, case_id: str, user: UserContext) -> Dict[str, Any]:
+    async def get_wizard_state(self, case_id: str, user: UserContext) -> dict[str, Any]:
         """Get current wizard state for a case."""
         case = await self.get_case_for_wizard(case_id, user)
         if not case:
@@ -321,7 +342,8 @@ class WizardService:
         # Check uploaded documents
         stmt = select(DepositEvidence).where(
             DepositEvidence.case_id == case_id,
-            DepositEvidence.is_deleted == False,
+            DepositEvidence.is_deleted.is_(False),
+            DepositEvidence.replaced_by_id.is_(None),
         )
         result = await self.db.execute(stmt)
         documents = result.scalars().all()

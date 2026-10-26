@@ -75,6 +75,20 @@ ROLE_PERMISSIONS: Dict[UserRole, Set[str]] = {
         "user:manage",
         "config:manage",
         "audit:read",
+        "case:read_assigned",
+        "case:read_all",
+        "case:review",
+        "dashboard:view_assigned",
+        "dashboard:view_all",
+        "dashboard:view_clearance",
+        "clearance:read_assigned",
+        "clearance:read_queue",
+        "clearance:read_all",
+        "release:read_all",
+        "release:read_fdr_rpgf",
+        "release:read_rtgs",
+        "evidence:read_all",
+        "evidence:read",
     },
 }
 
@@ -206,10 +220,19 @@ class AccessControlService:
         # Scrutiny/clearance officers can access assigned cases or cases in review stages
         if UserRole.SCRUTINY_OFFICER in user.roles or UserRole.CLEARANCE_OFFICER in user.roles:
             # Allow scrutiny officers to access scrutiny & review pipeline cases
-            if UserRole.SCRUTINY_OFFICER in user.roles and case_status in ("submitted", "under_scrutiny", "clarification_pending", "fdr_rpgf_review", "rtgs_review", "sd_refund_review"):
+            if UserRole.SCRUTINY_OFFICER in user.roles and case_status in (
+                "submitted",
+                "under_scrutiny",
+                "clarification_pending",
+                "clearance_queue",
+                "cleared",
+                "fdr_rpgf_review",
+                "rtgs_review",
+                "sd_refund_review",
+            ):
                 return True
             # Allow clearance officers to access CLEARANCE_QUEUE cases
-            if UserRole.CLEARANCE_OFFICER in user.roles and case_status == "clearance_queue":
+            if UserRole.CLEARANCE_OFFICER in user.roles and case_status in ("clearance_queue", "cleared"):
                 return True
             return case_assigned_officer_id == user.user_id
         
@@ -240,7 +263,7 @@ class AccessControlService:
             (CaseStatus.DRAFT, CaseStatus.SUBMITTED): ["case:create"],
             (CaseStatus.SUBMITTED, CaseStatus.UNDER_SCRUTINY): ["case:review"],
             (CaseStatus.UNDER_SCRUTINY, CaseStatus.CLARIFICATION_PENDING): ["clarification:request"],
-            (CaseStatus.CLARIFICATION_PENDING, CaseStatus.UNDER_SCRUTINY): ["clarification:respond"],
+            (CaseStatus.CLARIFICATION_PENDING, CaseStatus.UNDER_SCRUTINY): ["clarification:respond", "case:review"],
             (CaseStatus.UNDER_SCRUTINY, CaseStatus.CLEARANCE_QUEUE): ["clearance:prepare"],
             (CaseStatus.CLEARANCE_QUEUE, CaseStatus.CLEARED): ["clearance:record"],
             (CaseStatus.CLEARED, CaseStatus.RELEASE_REQUESTED): ["release:request_own"],

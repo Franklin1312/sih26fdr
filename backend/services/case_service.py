@@ -643,32 +643,44 @@ class CaseService:
         await self.db.flush()
 
     async def _create_default_clearance_tasks(self, case_id: str) -> str:
-        """Create default clearance tasks when case enters clearance queue."""
-        officer_result = await self.db.execute(
-            select(User.id).where(User.role == UserRole.CLEARANCE_OFFICER, User.is_active.is_(True)).limit(1)
+        """Create default clearance tasks when case enters clearance queue.
+
+        Each clearance type is assigned to a *different* active clearance
+        officer so that all three officers must independently clear the case
+        before it progresses to CLEARED status.
+        """
+        officers_result = await self.db.execute(
+            select(User.id).where(
+                User.role == UserRole.CLEARANCE_OFFICER,
+                User.is_active.is_(True),
+            ).order_by(User.id)
         )
-        clearance_officer_id = officer_result.scalar_one_or_none()
-        if not clearance_officer_id:
+        officer_ids = list(officers_result.scalars().all())
+        if not officer_ids:
             raise ValueError("No active clearance officer is available for clearance assignment")
 
+        # Map each clearance type to a dedicated officer (round-robin if fewer
+        # officers than task types).
         clearance_types = [
             ("pgrc", "Public Grievance Redressal Cell clearance"),
             ("vigilance", "Vigilance clearance"),
             ("technical", "Technical Cell/Bureau clearance"),
         ]
         
-        for clearance_type, description in clearance_types:
+        for index, (clearance_type, description) in enumerate(clearance_types):
+            assigned_officer = officer_ids[index % len(officer_ids)]
             task = ClearanceTask(
                 case_id=case_id,
                 clearance_type=clearance_type,
-                assigned_to=clearance_officer_id,
+                assigned_to=assigned_officer,
                 status=ClearanceStatus.PENDING,
                 notes=description,
             )
             self.db.add(task)
         
         await self.db.flush()
-        return clearance_officer_id
+        # Return the first officer as the "primary" (for backwards-compat with callers).
+        return officer_ids[0]
 
     async def _create_release_review_task(self, case_id: str, created_by: str):
         """Create release review task based on deposit method."""

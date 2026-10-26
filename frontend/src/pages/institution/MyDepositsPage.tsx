@@ -253,7 +253,7 @@ export function MyDepositsPage() {
                   <th className="whitespace-nowrap px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-slate-500">Amount</th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">Maturity</th>
                   <th className="whitespace-nowrap px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-slate-500">Status</th>
-                  <th className="px-4 py-3" />
+                  <th className="whitespace-nowrap px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-slate-500">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -283,10 +283,10 @@ export function MyDepositsPage() {
                         {getStatusLabel(c.status)}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3.5">
+                    <td className="px-4 py-3.5 text-right">
                       <Link
                         to={`/cases/${c.id}`}
-                        className="flex items-center gap-1 text-xs font-semibold text-indigo-600 hover:text-indigo-800 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="inline-flex items-center gap-1 rounded-lg bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-100 transition-colors"
                       >
                         View <ChevronRight className="h-3.5 w-3.5" />
                       </Link>

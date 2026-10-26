@@ -71,11 +71,14 @@ export function ScrutinyCaseDetailPage() {
   const handleTransition = async (newStatus: string, reason?: string, details?: Record<string, unknown>) => {
     try {
       await scrutinyApi.transitionStatus(caseId!, { new_status: newStatus as CaseStatus, reason, details });
-      const data = await scrutinyApi.getCaseDetail(caseId!);
-      setCaseData(data);
       setTransitionModalOpen(false);
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Failed to transition status');
+    } finally {
+      // Always re-fetch so the UI reflects the true server state,
+      // even if the request failed (prevents stale-status 400s on retry).
+      const data = await scrutinyApi.getCaseDetail(caseId!).catch(() => null);
+      if (data) setCaseData(data);
     }
   };
 
