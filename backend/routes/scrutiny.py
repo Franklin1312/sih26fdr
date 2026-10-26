@@ -175,6 +175,54 @@ async def claim_case(
     )
     case_service.db.add(event)
 
+    # SQLite populates the server-managed updated_at value during the UPDATE.
+    # Refresh before Pydantic serializes it to avoid async lazy loading outside
+    # SQLAlchemy's greenlet context (which otherwise becomes a 500 response).
+    await case_service.db.refresh(case)
+
+    return DepositCaseResponse.model_validate(case)
+
+
+@router.post("/cases/{case_id}/unassign", response_model=DepositCaseResponse)
+async def unassign_case(
+    case_id: str,
+    case_service: CaseService = Depends(get_case_service),
+    user: UserContext = Depends(get_user_context),
+):
+    """Return a claimed case to the scrutiny queue (UNDER_SCRUTINY -> SUBMITTED)."""
+    if not user.has_permission("case:review"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied")
+
+    case = await case_service.db.get(DepositCase, case_id)
+    if not case:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
+    if case.status != CaseStatus.UNDER_SCRUTINY:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Only cases under scrutiny can be unassigned")
+    if case.assigned_officer_id != user.user_id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the assigned scrutiny officer can unassign this case")
+
+    old_status = case.status
+    case.assigned_officer_id = None
+    case.status = CaseStatus.SUBMITTED
+    await case_service.db.flush()
+    await audit_service.log_event(
+        db=case_service.db,
+        entity_type="deposit_case",
+        entity_id=case.id,
+        action=AuditAction.STATUS_CHANGE,
+        actor_id=user.user_id,
+        old_values={"status": old_status.value, "assigned_officer_id": user.user_id},
+        new_values={"status": case.status.value, "assigned_officer_id": None},
+    )
+    case_service.db.add(CaseEvent(
+        case_id=case.id,
+        event_type="case_unassigned",
+        actor_id=user.user_id,
+        old_status=old_status,
+        new_status=case.status,
+        details={"unassigned_by": user.user_id},
+    ))
+    await case_service.db.refresh(case)
     return DepositCaseResponse.model_validate(case)
 
 
@@ -201,16 +249,31 @@ async def review_case(
     except ValueError:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid status: {new_status_str}")
 
-    allowed_transitions = [
-        CaseStatus.CLARIFICATION_PENDING,
-        CaseStatus.CLEARANCE_QUEUE,
-        CaseStatus.REJECTED,
-    ]
+    # Keep this endpoint in lock-step with the workflow state machine.  The
+    # generic scrutiny modal is also used for an unclaimed submitted case;
+    # that first move must be allowed to claim it for the reviewing officer.
+    case = await case_service.db.get(DepositCase, case_id)
+    if not case:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
+
+    allowed_by_current_status = {
+        CaseStatus.SUBMITTED: {CaseStatus.UNDER_SCRUTINY, CaseStatus.REJECTED},
+        CaseStatus.UNDER_SCRUTINY: {
+            CaseStatus.CLARIFICATION_PENDING,
+            CaseStatus.CLEARANCE_QUEUE,
+            CaseStatus.REJECTED,
+        },
+        CaseStatus.CLARIFICATION_PENDING: {CaseStatus.UNDER_SCRUTINY, CaseStatus.REJECTED},
+    }
+    allowed_transitions = allowed_by_current_status.get(case.status, set())
 
     if new_status not in allowed_transitions:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid transition from UNDER_SCRUTINY to {new_status.value}. Allowed: {[s.value for s in allowed_transitions]}"
+            detail=(
+                f"Invalid transition from {case.status.value} to {new_status.value}. "
+                f"Allowed: {[s.value for s in allowed_transitions]}"
+            )
         )
 
     from backend.schemas.deposit_case import DepositCaseStatusUpdate

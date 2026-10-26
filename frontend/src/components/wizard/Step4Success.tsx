@@ -24,6 +24,8 @@ const statusColors: Record<CaseStatus, string> = {
   rtgs_review: 'bg-blue-100 text-blue-800',
   sd_refund_review: 'bg-blue-100 text-blue-800',
   final_decision: 'bg-indigo-100 text-indigo-800',
+  noc_issued: 'bg-amber-100 text-amber-800',
+  sanctioned: 'bg-emerald-100 text-emerald-800',
   released: 'bg-emerald-100 text-emerald-800',
   rejected: 'bg-red-100 text-red-800',
   closed: 'bg-gray-100 text-gray-800',

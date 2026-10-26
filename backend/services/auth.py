@@ -116,15 +116,26 @@ class AuthService:
             "authority_1": UserRole.COMPETENT_AUTHORITY,
             "admin_1": UserRole.SYSTEM_ADMIN,
         }
+        demo_institutions = {
+            "inst_rep_1": ("inst_1", "Apex Institute of Technology"),
+            "inst_rep_2": ("inst_2", "National Medical College"),
+            "inst_rep_3": ("inst_3", "City Polytechnic Institute"),
+            "inst_rep_4": ("inst_4", "Eastern Management School"),
+        }
         role_enum = account_roles.get(user_id)
         if role_enum is None:
             raise ValueError("Unknown demo account")
+        institution_id, institution_name = demo_institutions.get(user_id, (None, None))
         self.demo_users[user_id] = {
             "user_id": user_id,
             "email": f"{user_id}@demo.example",
             "full_name": user_id.replace("_", " ").title(),
             "role": role_enum,
-            "institution_id": "inst_1" if role_enum == UserRole.INSTITUTION_REP else None,
+            # Each demo representative must retain their own tenant.  The old
+            # hard-coded inst_1 value made every persona look like Apex and
+            # overwrote the access-control context on /users/me.
+            "institution_id": institution_id,
+            "institution_name": institution_name,
             "is_authenticated": True,
         }
         

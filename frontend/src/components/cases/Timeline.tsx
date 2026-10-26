@@ -4,6 +4,10 @@ import type { CaseEventResponse } from '../../types/case';
 import { cn } from '../../utils/helpers';
 
 const eventIcons: Record<string, React.ReactNode> = {
+  case_created: <span className="bg-blue-100 text-blue-600">+</span>,
+  case_submitted: <span className="bg-blue-100 text-blue-600">→</span>,
+  case_claimed: <span className="bg-yellow-100 text-yellow-600">🔍</span>,
+  status_changed: <span className="bg-indigo-100 text-indigo-600">→</span>,
   created: <span className="bg-blue-100 text-blue-600">+</span>,
   step_completed: <span className="bg-green-100 text-green-600">✓</span>,
   submitted: <span className="bg-blue-100 text-blue-600">→</span>,
@@ -14,10 +18,16 @@ const eventIcons: Record<string, React.ReactNode> = {
   clearance_completed: <span className="bg-green-100 text-green-600">✓✓</span>,
   release_requested: <span className="bg-indigo-100 text-indigo-600">📤</span>,
   released: <span className="bg-green-100 text-green-600">✓</span>,
+  approval_noc_recorded: <span className="bg-amber-100 text-amber-700">✓</span>,
+  council_sanction_recorded: <span className="bg-green-100 text-green-700">✓✓</span>,
   rejected: <span className="bg-red-100 text-red-600">✗</span>,
 };
 
 const eventLabels: Record<string, string> = {
+  case_created: 'FDR Case Created',
+  case_submitted: 'FDR Submitted for Scrutiny',
+  case_claimed: 'Scrutiny Officer Assigned',
+  status_changed: 'Workflow Stage Updated',
   created: 'Case Created',
   step_completed: 'Step Completed',
   submitted: 'Submitted for Review',
@@ -28,6 +38,8 @@ const eventLabels: Record<string, string> = {
   clearance_completed: 'Clearance Completed',
   release_requested: 'Release Requested',
   released: 'Funds Released',
+  approval_noc_recorded: 'Approval Bureau NOC Recorded',
+  council_sanction_recorded: 'Council Sanction Recorded',
   rejected: 'Case Rejected',
 };
 

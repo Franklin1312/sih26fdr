@@ -52,7 +52,8 @@ export interface ClearanceClaimRequest {
 }
 
 export interface ClearanceCompleteRequest {
-  notes: string
+  evidence: string
+  notes?: string
 }
 
 export interface ClearanceTaskDetail {

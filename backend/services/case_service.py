@@ -351,7 +351,13 @@ class CaseService:
         )
         
         if status_update.new_status == CaseStatus.CLEARANCE_QUEUE:
-            await self._create_default_clearance_tasks(case.id, user.user_id)
+            # Clearance work must move from the scrutiny officer to the
+            # clearance queue. Assign the demo clearance persona and its tasks
+            # together so the next role can see and complete the case.
+            case.assigned_officer_id = await self._create_default_clearance_tasks(case.id)
+            # Reload the aggregate so an in-request follow-up sees new tasks
+            # instead of a previously cached empty relationship.
+            await self.db.refresh(case, ["clearances"])
         
         if status_update.new_status == CaseStatus.RELEASE_REQUESTED:
             await self._create_release_review_task(case.id, user.user_id)
@@ -369,18 +375,31 @@ class CaseService:
         elif UserRole.CLEARANCE_OFFICER in user.roles:
             base_query = base_query.where(DepositCase.assigned_officer_id == user.user_id)
         
-        total_result = await self.db.execute(select(func.count()).select_from(base_query.subquery()))
+        # Aggregate from one scoped subquery.  Referencing DepositCase again
+        # here produces a cartesian product, which inflated every dashboard
+        # status count and made a case appear to be missing from its real stage.
+        scoped_cases = base_query.subquery()
+
+        total_result = await self.db.execute(
+            base_query.with_only_columns(func.count()).order_by(None)
+        )
         total = total_result.scalar() or 0
         
-        status_query = select(DepositCase.status, func.count()).select_from(base_query.subquery()).group_by(DepositCase.status)
+        status_query = base_query.with_only_columns(
+            DepositCase.status, func.count()
+        ).group_by(DepositCase.status).order_by(None)
         status_result = await self.db.execute(status_query)
         by_status = {row[0].value: row[1] for row in status_result.all()}
         
-        type_query = select(DepositCase.deposit_type, func.count()).select_from(base_query.subquery()).group_by(DepositCase.deposit_type)
+        type_query = base_query.with_only_columns(
+            DepositCase.deposit_type, func.count()
+        ).group_by(DepositCase.deposit_type).order_by(None)
         type_result = await self.db.execute(type_query)
         by_type = {row[0].value: row[1] for row in type_result.all()}
         
-        method_query = select(DepositCase.deposit_method, func.count()).select_from(base_query.subquery()).group_by(DepositCase.deposit_method)
+        method_query = base_query.with_only_columns(
+            DepositCase.deposit_method, func.count()
+        ).group_by(DepositCase.deposit_method).order_by(None)
         method_result = await self.db.execute(method_query)
         by_method = {row[0].value: row[1] for row in method_result.all()}
         
@@ -422,7 +441,6 @@ class CaseService:
             pending_my_action = pending_result.scalar() or 0
         
         now = datetime.now(timezone.utc)
-        scoped_cases = base_query.subquery()
         overdue_query = select(func.count(LifecycleDate.id)).join(
             scoped_cases, LifecycleDate.case_id == scoped_cases.c.id
         ).where(
@@ -603,7 +621,13 @@ class CaseService:
             ))
 
         if case.deposit_type == DepositType.FDR and case.maturity_date:
-            renewal_due = case.maturity_date - timedelta(days=365)
+            # HTML date inputs are intentionally date-only and Pydantic parses
+            # them as naive datetimes. Normalize before comparing with UTC so a
+            # valid FDR submission cannot fail during lifecycle creation.
+            maturity_date = case.maturity_date
+            if maturity_date.tzinfo is None:
+                maturity_date = maturity_date.replace(tzinfo=timezone.utc)
+            renewal_due = maturity_date - timedelta(days=365)
             if renewal_due > datetime.now(timezone.utc):
                 dates_to_create.append(LifecycleDate(
                     case_id=case.id,
@@ -618,25 +642,33 @@ class CaseService:
         
         await self.db.flush()
 
-    async def _create_default_clearance_tasks(self, case_id: str, created_by: str):
+    async def _create_default_clearance_tasks(self, case_id: str) -> str:
         """Create default clearance tasks when case enters clearance queue."""
+        officer_result = await self.db.execute(
+            select(User.id).where(User.role == UserRole.CLEARANCE_OFFICER, User.is_active.is_(True)).limit(1)
+        )
+        clearance_officer_id = officer_result.scalar_one_or_none()
+        if not clearance_officer_id:
+            raise ValueError("No active clearance officer is available for clearance assignment")
+
         clearance_types = [
-            ("financial_verification", "Financial document verification"),
-            ("legal_compliance", "Legal compliance check"),
-            ("technical_verification", "Technical document verification"),
+            ("pgrc", "Public Grievance Redressal Cell clearance"),
+            ("vigilance", "Vigilance clearance"),
+            ("technical", "Technical Cell/Bureau clearance"),
         ]
         
         for clearance_type, description in clearance_types:
             task = ClearanceTask(
                 case_id=case_id,
                 clearance_type=clearance_type,
-                assigned_to=created_by,
+                assigned_to=clearance_officer_id,
                 status=ClearanceStatus.PENDING,
                 notes=description,
             )
             self.db.add(task)
         
         await self.db.flush()
+        return clearance_officer_id
 
     async def _create_release_review_task(self, case_id: str, created_by: str):
         """Create release review task based on deposit method."""

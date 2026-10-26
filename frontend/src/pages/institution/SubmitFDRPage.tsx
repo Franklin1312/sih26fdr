@@ -12,6 +12,7 @@ import {
   HelpCircle,
 } from 'lucide-react'
 import { casesApi } from '../../api/cases'
+import { wizardApi } from '../../api/wizard'
 import { useAuth } from '../../auth/useAuth'
 import type { DepositType, DepositMethod } from '../../types/case'
 import { formatCurrency } from '../../utils/helpers'
@@ -19,7 +20,7 @@ import { formatCurrency } from '../../utils/helpers'
 export const SubmitFDRPage: React.FC = () => {
   const navigate = useNavigate()
   const { user } = useAuth()
-  const institutionId = user?.institution_id || 'inst_1'
+  const institutionId = user?.institution_id
 
   // Form State
   const [depositType, setDepositType] = useState<DepositType>('fdr')
@@ -43,20 +44,29 @@ export const SubmitFDRPage: React.FC = () => {
   const [bankConfirmationObtained, setBankConfirmationObtained] = useState(true)
 
   // Document file state
-  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [selectedFiles, setSelectedFiles] = useState<Record<string, File | null>>({
+    fdr_original: null,
+    payment_proof: null,
+    loa_eoa: null,
+  })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [successResult, setSuccessResult] = useState<{ id: string; tracking_ref: string } | null>(null)
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (documentType: string, e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      setSelectedFile(e.target.files[0])
+      setSelectedFiles((current) => ({ ...current, [documentType]: e.target.files![0] }))
     }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setErrorMessage(null)
+
+    if (!institutionId) {
+      setErrorMessage('Your account is not linked to an institution. Please sign in again.')
+      return
+    }
 
     if (!amount || amount <= 0) {
       setErrorMessage('Please provide a valid deposit amount')
@@ -72,6 +82,13 @@ export const SubmitFDRPage: React.FC = () => {
     }
     if (!lienMarkedToAicte) {
       setErrorMessage('AICTE Clause 6.46 mandates that the lien must be marked to AICTE')
+      return
+    }
+    const missingDocuments = Object.entries(selectedFiles)
+      .filter(([, file]) => !file)
+      .map(([documentType]) => documentType.replaceAll('_', ' '))
+    if (missingDocuments.length) {
+      setErrorMessage(`Upload the required evidence before submitting: ${missingDocuments.join(', ')}`)
       return
     }
 
@@ -97,19 +114,19 @@ export const SubmitFDRPage: React.FC = () => {
 
       const created = await casesApi.create(payload)
 
-      // If a document was attached, upload it
-      if (selectedFile) {
-        try {
-          await casesApi.uploadDocument(
-            created.id,
-            selectedFile,
-            'fdr_receipt',
-            `FDR receipt for ${instrumentNumber} - ${issuingBank}`
-          )
-        } catch (uploadErr) {
-          console.warn('Document upload error after case creation', uploadErr)
-        }
+      for (const [documentType, file] of Object.entries(selectedFiles)) {
+        await casesApi.uploadDocument(
+          created.id,
+          file as File,
+          documentType,
+          `${documentType.replaceAll('_', ' ')} for ${instrumentNumber}`,
+        )
       }
+
+      const review = await wizardApi.submitStep3(created.id, { confirmed: true, terms_accepted: true })
+      if (!review.success) throw new Error(review.errors?.join(', ') || 'Review confirmation failed')
+      const submission = await wizardApi.submitStep4(created.id)
+      if (!submission.success) throw new Error(submission.errors?.join(', ') || 'Case submission failed')
 
       setSuccessResult({
         id: created.id,
@@ -146,7 +163,7 @@ export const SubmitFDRPage: React.FC = () => {
 
         <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-50 border border-indigo-100 text-xs text-indigo-700">
           <Building2 className="w-4 h-4 text-indigo-600" />
-          <span>{user?.full_name || 'Apex Institute of Technology'}</span>
+          <span>{user?.institution_name || user?.full_name || 'Institution Representative'}</span>
         </div>
       </div>
 
@@ -339,30 +356,24 @@ export const SubmitFDRPage: React.FC = () => {
             {/* Document Evidence Upload */}
             <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm space-y-4">
               <h2 className="text-sm font-bold uppercase tracking-wider text-slate-800 border-b border-slate-100 pb-2">
-                2. Scanned FDR Document & Bank Confirmation
+                2. Required Evidence Documents
               </h2>
 
-              <div className="border-2 border-dashed border-slate-300 hover:border-indigo-400 rounded-xl p-6 text-center transition-colors bg-slate-50/50">
-                <input
-                  type="file"
-                  id="fdrFile"
-                  accept=".pdf,.png,.jpg,.jpeg"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-                <label htmlFor="fdrFile" className="cursor-pointer space-y-2 block">
-                  <UploadCloud className="w-10 h-10 text-indigo-500 mx-auto" />
-                  <div className="text-xs font-semibold text-slate-700">
-                    {selectedFile ? (
-                      <span className="text-indigo-600 font-bold">{selectedFile.name}</span>
-                    ) : (
-                      'Click to upload or drag and drop scanned FDR PDF/Image'
-                    )}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {([
+                  ['fdr_original', 'Original FDR certificate'],
+                  ['payment_proof', 'Deposit payment proof'],
+                  ['loa_eoa', 'Current LoA / EoA'],
+                ] as const).map(([documentType, label]) => (
+                  <div key={documentType} className="border-2 border-dashed border-slate-300 hover:border-indigo-400 rounded-xl p-4 text-center transition-colors bg-slate-50/50">
+                    <input type="file" id={documentType} accept=".pdf,.png,.jpg,.jpeg" onChange={(event) => handleFileChange(documentType, event)} className="hidden" />
+                    <label htmlFor={documentType} className="cursor-pointer space-y-2 block">
+                      <UploadCloud className="w-8 h-8 text-indigo-500 mx-auto" />
+                      <div className="text-xs font-semibold text-slate-700">{label} <span className="text-rose-500">*</span></div>
+                      <p className="text-[11px] text-slate-400 break-all">{selectedFiles[documentType]?.name || 'Upload PDF, JPEG, or PNG (max 10MB)'}</p>
+                    </label>
                   </div>
-                  <p className="text-[11px] text-slate-400">
-                    PDF, JPEG, or PNG up to 15MB. Ensure bank seal and joint lien text are legible.
-                  </p>
-                </label>
+                ))}
               </div>
             </div>
 
@@ -472,11 +483,11 @@ export const SubmitFDRPage: React.FC = () => {
                   </div>
                 </div>
 
-                {selectedFile && (
+                {Object.values(selectedFiles).some(Boolean) && (
                   <div className="rounded-lg bg-indigo-50/60 p-2.5 border border-indigo-100 flex items-center gap-2">
                     <FileText className="w-4 h-4 text-indigo-600 flex-shrink-0" />
                     <span className="text-[11px] font-medium text-indigo-900 truncate">
-                      {selectedFile.name}
+                      {Object.values(selectedFiles).filter(Boolean).length} of 3 required documents attached
                     </span>
                   </div>
                 )}

@@ -14,7 +14,9 @@ export const releaseApi = {
     search?: string
     status?: string
   } = {}): Promise<ReleaseQueueResponse> {
-    const response = await apiClient.axios.get('/release/queue', { params })
+    const response = await apiClient.axios.get('/release/queue', {
+      params: Object.fromEntries(Object.entries(params).filter(([, value]) => value !== '')),
+    })
     return response.data
   },
 
@@ -43,7 +45,9 @@ export const releaseApi = {
     page_size?: number
     status?: string
   } = {}): Promise<ReleaseQueueResponse> {
-    const response = await apiClient.axios.get('/release/my-requests', { params })
+    const response = await apiClient.axios.get('/release/my-requests', {
+      params: Object.fromEntries(Object.entries(params).filter(([, value]) => value !== '')),
+    })
     return response.data
   },
 }

@@ -1,6 +1,8 @@
 import axios, { type AxiosError, type AxiosInstance, type InternalAxiosRequestConfig } from 'axios'
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1'
+// A relative development URL uses Vite's proxy. A hard-coded localhost URL
+// otherwise points to the browser's machine and surfaces as Axios "Network Error".
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 
 class ApiClient {
   private client: AxiosInstance
@@ -56,7 +58,20 @@ class ApiClient {
           }
         }
 
-        return Promise.reject(error)
+        // FastAPI returns useful validation/workflow text in either `error`
+        // (our API handler) or `detail` (request validation).  Axios otherwise
+        // reduces every failure to "Request failed with status code …", which
+        // makes a missing release document or invalid workflow step impossible
+        // for an officer to act on.
+        const payload = error.response?.data as { error?: unknown; detail?: unknown } | undefined
+        const message = typeof payload?.error === 'string'
+          ? payload.error
+          : typeof payload?.detail === 'string'
+            ? payload.detail
+            : Array.isArray(payload?.detail)
+              ? payload.detail.map((item: { msg?: string }) => item.msg || 'Invalid request').join('; ')
+              : error.message
+        return Promise.reject(new Error(message))
       }
     )
   }

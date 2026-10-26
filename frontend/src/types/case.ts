@@ -21,6 +21,8 @@ export type CaseStatus =
   | 'rtgs_review'
   | 'sd_refund_review'
   | 'final_decision'
+  | 'noc_issued'
+  | 'sanctioned'
   | 'released'
   | 'rejected'
   | 'closed'

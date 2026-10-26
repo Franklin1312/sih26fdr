@@ -18,7 +18,9 @@ export const scrutinyApi = {
     search?: string
     status?: string
   } = {}): Promise<ScrutinyQueueResponse> {
-    const response = await apiClient.axios.get('/scrutiny/queue', { params })
+    const response = await apiClient.axios.get('/scrutiny/queue', {
+      params: Object.fromEntries(Object.entries(params).filter(([, value]) => value !== '')),
+    })
     return response.data
   },
 

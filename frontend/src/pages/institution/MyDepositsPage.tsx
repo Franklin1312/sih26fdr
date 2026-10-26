@@ -38,6 +38,7 @@ const STATUS_FILTERS = [
   { value: 'clarification_pending', label: 'Clarification Needed' },
   { value: 'cleared', label: 'Cleared' },
   { value: 'released', label: 'Released' },
+  { value: 'sanctioned', label: 'Council Sanctioned' },
 ]
 
 function daysUntil(dateStr: string | null): number | null {

@@ -15,9 +15,8 @@ interface StatusTransitionModalProps {
 
 const STATUS_TRANSITIONS: Record<string, string[]> = {
   submitted: ['under_scrutiny', 'rejected'],
-  under_scrutiny: ['clarification_pending', 'clearance_queue', 'submitted', 'rejected'],
-  clarification_pending: ['under_scrutiny', 'clearance_queue', 'rejected'],
-  clearance_queue: ['under_scrutiny', 'rejected'],
+  under_scrutiny: ['clarification_pending', 'clearance_queue', 'rejected'],
+  clarification_pending: ['under_scrutiny', 'rejected'],
 };
 
 export function StatusTransitionModal({

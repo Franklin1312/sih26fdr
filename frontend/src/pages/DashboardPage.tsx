@@ -99,7 +99,7 @@ export function DashboardPage() {
     { name: '2. Scrutiny & Review', count: (byStatus.under_scrutiny ?? 0) + (byStatus.clarification_pending ?? 0), icon: Search, color: 'text-blue-600', bg: 'bg-blue-50' },
     { name: '3. Multi-Bureau Clearance', count: byStatus.clearance_queue ?? 0, icon: CheckCircle2, color: 'text-purple-600', bg: 'bg-purple-50' },
     { name: '4. Authority Approval', count: (byStatus.fdr_rpgf_review ?? 0) + (byStatus.rtgs_review ?? 0) + (byStatus.sd_refund_review ?? 0), icon: ShieldCheck, color: 'text-amber-600', bg: 'bg-amber-50' },
-    { name: '5. Decision Recorded', count: (byStatus.final_decision ?? 0) + (byStatus.released ?? 0), icon: Send, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { name: '5. Decision / Sanction', count: (byStatus.final_decision ?? 0) + (byStatus.noc_issued ?? 0) + (byStatus.sanctioned ?? 0) + (byStatus.released ?? 0), icon: Send, color: 'text-emerald-600', bg: 'bg-emerald-50' },
   ]
 
   const filteredCases = casesData?.items.filter((item) => {

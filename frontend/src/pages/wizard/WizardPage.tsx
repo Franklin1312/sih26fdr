@@ -152,12 +152,12 @@ export function WizardPage({ isNew = false }: WizardPageProps) {
         </div>
 
         <Card className="p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Demo Engineering College</h3>
-          <p className="text-gray-600 mb-4">Synthetic demo institution · inst_1</p>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">{user?.institution_name || 'Your authorized institution'}</h3>
+          <p className="text-gray-600 mb-4">Institution ID · {user?.institution_id || 'not available'}</p>
           <Button
             className="w-full"
-            disabled={isLoading}
-            onClick={() => createCase(user?.institution_id ?? 'inst_1')}
+            disabled={isLoading || !user?.institution_id}
+            onClick={() => user?.institution_id && createCase(user.institution_id)}
           >
             Create deposit case
           </Button>

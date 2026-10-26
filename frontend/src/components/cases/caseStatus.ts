@@ -12,6 +12,8 @@ const statusConfig: Record<CaseStatus, { label: string; variant: 'default' | 'su
   rtgs_review: { label: 'RTGS Review', variant: 'warning' },
   sd_refund_review: { label: 'Security Deposit Review', variant: 'warning' },
   final_decision: { label: 'Final Decision', variant: 'info' },
+  noc_issued: { label: 'NOC Issued — Council Review', variant: 'warning' },
+  sanctioned: { label: 'Council Sanctioned', variant: 'success' },
   released: { label: 'Released', variant: 'success' },
   rejected: { label: 'Rejected', variant: 'danger' },
   closed: { label: 'Closed', variant: 'default' },

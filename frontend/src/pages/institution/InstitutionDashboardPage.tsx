@@ -20,12 +20,13 @@ import { formatCurrency, formatDate, getStatusColor, getStatusLabel } from '../.
 
 export const InstitutionDashboardPage: React.FC = () => {
   const { user } = useAuth()
-  const institutionId = user?.institution_id || 'inst_1'
+  const institutionId = user?.institution_id
 
   // Fetch deposits for this institution
   const { data: casesData, isLoading } = useQuery({
     queryKey: ['institution-cases', institutionId],
-    queryFn: () => casesApi.list({ institution_id: institutionId, page: 1, page_size: 50 }),
+    queryFn: () => casesApi.list({ institution_id: institutionId!, page: 1, page_size: 50 }),
+    enabled: !!institutionId,
   })
 
   // Fetch alerts

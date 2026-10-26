@@ -42,6 +42,8 @@ class CaseStatus(str, enum.Enum):
     RTGS_REVIEW = "rtgs_review"
     SD_REFUND_REVIEW = "sd_refund_review"
     FINAL_DECISION = "final_decision"
+    NOC_ISSUED = "noc_issued"
+    SANCTIONED = "sanctioned"
     RELEASED = "released"
     REJECTED = "rejected"
     CLOSED = "closed"
@@ -127,7 +129,9 @@ VALID_TRANSITIONS: dict[CaseStatus, list[CaseStatus]] = {
     CaseStatus.FDR_RPGF_REVIEW: [CaseStatus.FINAL_DECISION],
     CaseStatus.RTGS_REVIEW: [CaseStatus.FINAL_DECISION],
     CaseStatus.SD_REFUND_REVIEW: [CaseStatus.FINAL_DECISION],
-    CaseStatus.FINAL_DECISION: [CaseStatus.RELEASED, CaseStatus.REJECTED, CaseStatus.CLOSED],
+    CaseStatus.FINAL_DECISION: [CaseStatus.NOC_ISSUED, CaseStatus.REJECTED, CaseStatus.CLOSED],
+    CaseStatus.NOC_ISSUED: [CaseStatus.SANCTIONED, CaseStatus.REJECTED, CaseStatus.CLOSED],
+    CaseStatus.SANCTIONED: [CaseStatus.CLOSED],
     CaseStatus.RELEASED: [CaseStatus.CLOSED],
     CaseStatus.REJECTED: [CaseStatus.CLOSED],
     CaseStatus.CLOSED: [],

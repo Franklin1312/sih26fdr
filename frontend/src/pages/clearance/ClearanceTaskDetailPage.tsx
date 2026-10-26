@@ -71,7 +71,7 @@ export function ClearanceTaskDetailPage() {
     if (!taskId || !task || !notes.trim()) return;
     setActionLoading(true);
     try {
-      await clearanceApi.completeTask(task.id, { notes: notes.trim() });
+      await clearanceApi.completeTask(task.id, { evidence: notes.trim(), notes: notes.trim() });
       const data = await clearanceApi.getTaskDetail(taskId);
       setTask(data);
       setActionModalOpen(false);
@@ -81,11 +81,6 @@ export function ClearanceTaskDetailPage() {
     } finally {
       setActionLoading(false);
     }
-  };
-
-  const openClaimModal = () => {
-    setActionType('claim');
-    setActionModalOpen(true);
   };
 
   const openCompleteModal = () => {
@@ -176,7 +171,7 @@ export function ClearanceTaskDetailPage() {
           <div className="bg-white border border-gray-200 rounded-xl p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Actions</h2>
             <div className="space-y-3">
-              {task.status === 'pending' && <Button variant="primary" className="w-full" onClick={openClaimModal}><CheckCircle className="h-4 w-4 mr-2" /> Claim Task</Button>}
+              {task.status === 'pending' && <Button variant="primary" className="w-full" onClick={openCompleteModal}><CheckCircle className="h-4 w-4 mr-2" /> Complete Clearance</Button>}
               {(task.status === 'claimed' || task.status === 'in_progress') && <Button variant="primary" className="w-full" onClick={openCompleteModal}><CheckCircle className="h-4 w-4 mr-2" /> Complete Task</Button>}
               {task.status === 'claimed' && <Button variant="ghost" className="w-full" onClick={handleClaim}><XCircle className="h-4 w-4 mr-2" /> Unclaim (Re-release)</Button>}
               {task.status === 'cleared' && <Button variant="secondary" className="w-full" disabled><CheckCircle className="h-4 w-4 mr-2" /> Task Cleared</Button>}

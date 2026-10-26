@@ -14,6 +14,7 @@ import { DocumentViewer } from '../../components/cases/DocumentViewer';
 import { CaseStatusBadge } from '../../components/cases/CaseStatusBadge';
 import { Timeline } from '../../components/cases/Timeline';
 import { DocumentCard } from '../../components/cases/DocumentCard';
+import { useAuth } from '../../auth/useAuth';
 
 export function ReleaseCaseDetailPage() {
   const { caseId } = useParams<{ caseId: string }>();
@@ -30,6 +31,9 @@ export function ReleaseCaseDetailPage() {
   const [viewerDoc, setViewerDoc] = useState<DepositEvidenceResponse | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'documents' | 'timeline' | 'checklist'>('overview');
+  const [authorityOutput, setAuthorityOutput] = useState<File | null>(null);
+  const [outputLoading, setOutputLoading] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
     if (!caseId) return;
@@ -97,6 +101,28 @@ export function ReleaseCaseDetailPage() {
     setDecisionModalOpen(true);
   };
 
+  const handleAuthorityOutput = async () => {
+    if (!depositCase || !authorityOutput) return;
+    const documentType = user?.role === 'approval_bureau'
+      ? 'approval_bureau_noc'
+      : 'council_sanction_order';
+    setOutputLoading(true);
+    try {
+      await casesApi.uploadDocument(depositCase.id, authorityOutput, documentType);
+      const [release, refreshedCase] = await Promise.all([
+        releaseApi.getCaseDetail(depositCase.id),
+        casesApi.getById(depositCase.id),
+      ]);
+      setCaseData(release);
+      setDepositCase(refreshedCase);
+      setAuthorityOutput(null);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : 'Could not record the authority output');
+    } finally {
+      setOutputLoading(false);
+    }
+  };
+
   const allMandatorySatisfied = checklist
     .filter(item => item.mandatory)
     .every(item => item.completed);
@@ -117,6 +143,15 @@ export function ReleaseCaseDetailPage() {
   }
 
   const canDecide = caseData.status === 'pending';
+  const isApprovalBureauStage = depositCase?.deposit_method === 'fdr_rpgf'
+    && depositCase.status === 'final_decision'
+    && user?.role === 'approval_bureau';
+  const isCouncilStage = user?.role === 'council' && (
+    (depositCase?.deposit_method === 'rtgs' && depositCase.status === 'final_decision') ||
+    (depositCase?.deposit_method === 'fdr_rpgf' && depositCase.status === 'noc_issued')
+  );
+  const outputType = isApprovalBureauStage ? 'Approval Bureau NOC' : 'Council sanction order';
+  const canRecordAuthorityOutput = isApprovalBureauStage || isCouncilStage;
 
   return (
     <div className="space-y-6">
@@ -150,6 +185,19 @@ export function ReleaseCaseDetailPage() {
               <Button variant="primary" onClick={() => openDecisionModal('approve')} disabled={decisionLoading}><CheckCircle className="h-4 w-4 mr-2" /> Approve Release</Button>
               <Button variant="destructive" onClick={() => openDecisionModal('reject')} disabled={decisionLoading}><XCircle className="h-4 w-4 mr-2" /> Reject</Button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {canRecordAuthorityOutput && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+          <p className="font-medium text-emerald-900">Record simulated {outputType}</p>
+          <p className="text-sm text-emerald-700 mt-1">{isApprovalBureauStage ? 'Recording the NOC routes this case to the Council for final sanction.' : 'Recording the Council sanction completes the simulated case and adds it to the audit trail.'}</p>
+          <div className="flex flex-wrap items-center gap-3 mt-3">
+            <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(event) => setAuthorityOutput(event.target.files?.[0] || null)} />
+            <Button variant="primary" onClick={handleAuthorityOutput} disabled={!authorityOutput || outputLoading}>
+              {outputLoading ? 'Recording...' : `Record ${outputType}`}
+            </Button>
           </div>
         </div>
       )}

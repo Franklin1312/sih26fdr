@@ -12,7 +12,7 @@ class TestCasesAPI:
     
     @pytest.mark.asyncio
     async def test_create_case_draft(self, client: AsyncClient, test_db, demo_institution, demo_user):
-        """Test creating a deposit case in DRAFT status."""
+        """Test creating a deposit case in DRAFT status from HTML date input."""
         # Add demo data to test database
         test_db.add(demo_institution)
         test_db.add(demo_user)
@@ -38,7 +38,8 @@ class TestCasesAPI:
             "currency": "INR",
             "instrument_number": "FDR-TEST-001",
             "issuing_bank": "State Bank of India",
-            "maturity_date": (datetime.now(timezone.utc) + timedelta(days=30)).isoformat(),
+            # Browser <input type="date"> controls submit date-only values.
+            "maturity_date": (datetime.now(timezone.utc) + timedelta(days=30)).date().isoformat(),
             "aicte_clause_ref": "6.46",
         }
         

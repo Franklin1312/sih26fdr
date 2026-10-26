@@ -1,7 +1,7 @@
 import io
 """Evidence/Document routes for deposit cases."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File, Form, Header
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -87,17 +87,36 @@ async def upload_evidence(
     authority_output_types = {"approval_bureau_noc", "council_sanction_order"}
     is_authority_output = document_type in authority_output_types
     if is_authority_output:
-        expected = "approval_bureau_noc" if case.deposit_method.value == "fdr_rpgf" else "council_sanction_order" if case.deposit_method.value == "rtgs" else None
-        expected_role = "approval_bureau" if document_type == "approval_bureau_noc" else "council"
-        if document_type != expected or expected_role not in {role.value for role in user.roles} or not user.has_permission("evidence:upload_authority"):
+        roles = {role.value for role in user.roles}
+        is_fdr_noc = (
+            document_type == "approval_bureau_noc"
+            and case.deposit_method.value == "fdr_rpgf"
+            and "approval_bureau" in roles
+            and case.status == CaseStatus.FINAL_DECISION
+        )
+        is_rtgs_sanction = (
+            document_type == "council_sanction_order"
+            and case.deposit_method.value == "rtgs"
+            and "council" in roles
+            and case.status == CaseStatus.FINAL_DECISION
+        )
+        # The FDR simulation has an explicit final Council sanction following
+        # the Approval Bureau NOC.
+        is_fdr_council_sanction = (
+            document_type == "council_sanction_order"
+            and case.deposit_method.value == "fdr_rpgf"
+            and "council" in roles
+            and case.status == CaseStatus.NOC_ISSUED
+        )
+        if not user.has_permission("evidence:upload_authority") or not (
+            is_fdr_noc or is_rtgs_sanction or is_fdr_council_sanction
+        ):
             raise HTTPException(status_code=403, detail="Only the routed authority can record this official output")
-        if case.status != CaseStatus.FINAL_DECISION:
-            raise HTTPException(status_code=400, detail="Authority output can be recorded only after authorization")
     else:
         require_evidence_access(user, case, "evidence:upload")
     
     # Check case status - only allow upload in certain statuses
-    allowed_statuses = [CaseStatus.DRAFT, CaseStatus.SUBMITTED, CaseStatus.UNDER_SCRUTINY, CaseStatus.CLARIFICATION_PENDING, CaseStatus.CLEARED, CaseStatus.RELEASE_REQUESTED, CaseStatus.FDR_RPGF_REVIEW, CaseStatus.RTGS_REVIEW, CaseStatus.SD_REFUND_REVIEW, CaseStatus.FINAL_DECISION]
+    allowed_statuses = [CaseStatus.DRAFT, CaseStatus.SUBMITTED, CaseStatus.UNDER_SCRUTINY, CaseStatus.CLARIFICATION_PENDING, CaseStatus.CLEARED, CaseStatus.RELEASE_REQUESTED, CaseStatus.FDR_RPGF_REVIEW, CaseStatus.RTGS_REVIEW, CaseStatus.SD_REFUND_REVIEW, CaseStatus.FINAL_DECISION, CaseStatus.NOC_ISSUED]
     if case.status not in allowed_statuses:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -190,6 +209,34 @@ async def upload_evidence(
             db=db, entity_type="deposit_case", entity_id=case.id,
             action=AuditAction.UPDATE, actor_id=user.user_id,
             new_values={"authority_output_recorded": document_type, "evidence_id": evidence.id, "simulation": case.is_demo},
+        )
+        previous_status = case.status
+        case.status = (
+            CaseStatus.NOC_ISSUED
+            if document_type == "approval_bureau_noc"
+            else CaseStatus.SANCTIONED
+        )
+        case.previous_status = previous_status
+        if case.status == CaseStatus.SANCTIONED:
+            case.closed_at = datetime.now(timezone.utc)
+        from backend.models import CaseEvent
+        db.add(CaseEvent(
+            id=str(uuid4()),
+            case_id=case.id,
+            event_type="approval_noc_recorded" if document_type == "approval_bureau_noc" else "council_sanction_recorded",
+            actor_id=user.user_id,
+            old_status=previous_status,
+            new_status=case.status,
+            details={"document_type": document_type, "evidence_id": evidence.id, "simulation": case.is_demo},
+        ))
+        await audit_service.log_event(
+            db=db, entity_type="deposit_case", entity_id=case.id,
+            action=AuditAction.STATUS_CHANGE, actor_id=user.user_id,
+            old_values={"status": previous_status.value},
+            new_values={
+                "status": case.status.value,
+                "reason": "Approval Bureau NOC recorded; routed to Council" if case.status == CaseStatus.NOC_ISSUED else "Council sanction recorded",
+            },
         )
     
     await db.commit()

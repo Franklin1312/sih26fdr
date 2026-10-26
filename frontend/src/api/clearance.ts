@@ -16,7 +16,9 @@ export const clearanceApi = {
     status?: string
     my_tasks_only?: boolean
   } = {}): Promise<ClearanceQueueResponse> {
-    const response = await apiClient.axios.get('/clearance/queue', { params })
+    const response = await apiClient.axios.get('/clearance/queue', {
+      params: Object.fromEntries(Object.entries(params).filter(([, value]) => value !== '')),
+    })
     return response.data
   },
 
@@ -26,7 +28,9 @@ export const clearanceApi = {
   },
 
   async claimTask(taskId: string): Promise<ClearanceTaskResponse> {
-    const response = await apiClient.axios.post(`/clearance/cases/${taskId}/claim`)
+    // FastAPI models, including an empty claim model, still require a JSON
+    // body.  Sending {} prevents the request-body validation 422.
+    const response = await apiClient.axios.post(`/clearance/cases/${taskId}/claim`, {})
     return response.data
   },
 
@@ -46,7 +50,9 @@ export const clearanceApi = {
     clearance_type?: string
     status?: string
   } = {}): Promise<ClearanceQueueResponse> {
-    const response = await apiClient.axios.get('/clearance/queue', { params })
+    const response = await apiClient.axios.get('/clearance/queue', {
+      params: Object.fromEntries(Object.entries(params).filter(([, value]) => value !== '')),
+    })
     return response.data
   },
 }

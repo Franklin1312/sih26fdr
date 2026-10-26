@@ -55,7 +55,7 @@ async def get_case_service(db: AsyncSession = Depends(get_db)) -> CaseService:
 async def get_clearance_queue(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
-    status: Optional[CaseStatus] = Query(None),
+    status_filter: Optional[str] = Query(None, alias="status"),
     current_user=Depends(get_current_user),
     case_service: CaseService = Depends(get_case_service),
     db: AsyncSession = Depends(get_db),
@@ -77,8 +77,13 @@ async def get_clearance_queue(
         )
     )
     
-    if status:
-        query = query.where(DepositCase.status == status)
+    # Browser filter controls submit an empty string for "All statuses".
+    # Parse it explicitly rather than letting FastAPI turn it into a 422.
+    if status_filter:
+        try:
+            query = query.where(DepositCase.status == CaseStatus(status_filter))
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Unknown clearance status filter")
     
     count_query = select(func.count()).select_from(query.subquery())
     total_result = await db.execute(count_query)
@@ -226,7 +231,16 @@ async def update_clearance_task(
     await db.flush()
     
     # Check if all tasks for this case are cleared
-    case = await db.get(DepositCase, task.case_id)
+    # This response and the all-clear check need relationships.  Loading a
+    # bare case then reading ``case.clearances`` causes an implicit async lazy
+    # load (and a 500/MissingGreenlet) in a real server request.
+    case_result = await db.execute(
+        select(DepositCase).where(DepositCase.id == task.case_id).options(
+            selectinload(DepositCase.clearances),
+            selectinload(DepositCase.institution),
+        )
+    )
+    case = case_result.scalar_one_or_none()
     if case:
         all_cleared = bool(case.clearances) and all(t.status == ClearanceStatus.CLEARED for t in case.clearances)
         if all_cleared and case.status == CaseStatus.CLEARANCE_QUEUE:
@@ -243,6 +257,10 @@ async def update_clearance_task(
                 new_values={"case_number": case.case_number, "all_tasks_cleared": True},
             )
     
+    # completed_at / updated_at are assigned by the database. Refresh scalar
+    # fields before building the response so async SQLAlchemy does not attempt
+    # an implicit lazy load during serialization.
+    await db.refresh(task)
     await db.refresh(task, ["assigned_to_user"])
     
     return ClearanceTaskDetail(
@@ -286,7 +304,16 @@ async def complete_clearance_task(
     
     await db.flush()
     
-    case = await db.get(DepositCase, task.case_id)
+    # Eager-load the aggregate before checking completion and serializing its
+    # institution fields; otherwise the first completion attempt can return
+    # an Internal Server Error outside SQLAlchemy's async greenlet context.
+    case_result = await db.execute(
+        select(DepositCase).where(DepositCase.id == task.case_id).options(
+            selectinload(DepositCase.clearances),
+            selectinload(DepositCase.institution),
+        )
+    )
+    case = case_result.scalar_one_or_none()
     if case:
         all_cleared = bool(case.clearances) and all(t.status == ClearanceStatus.CLEARED for t in case.clearances)
         if all_cleared and case.status == CaseStatus.CLEARANCE_QUEUE:
@@ -303,6 +330,10 @@ async def complete_clearance_task(
                 new_values={"case_number": case.case_number, "all_tasks_cleared": True},
             )
     
+    # completed_at / updated_at are assigned by the database. Refresh scalar
+    # fields before building the response so async SQLAlchemy does not attempt
+    # an implicit lazy load during serialization.
+    await db.refresh(task)
     await db.refresh(task, ["assigned_to_user"])
     
     return ClearanceTaskDetail(

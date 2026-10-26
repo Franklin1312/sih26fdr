@@ -21,11 +21,14 @@ class DepositCaseBase(BaseModel):
     """Base deposit case fields."""
     deposit_type: DepositType
     deposit_method: DepositMethod
-    amount: Decimal = Field(..., gt=Decimal("0"), max_digits=15, decimal_places=2)
+    # Wizard drafts are persisted before all instrument data is entered.  Keep
+    # the read schema permissive so one incomplete draft cannot make the
+    # institution's complete case register return a 500 and hide every FDR.
+    amount: Decimal = Field(..., ge=Decimal("0"), max_digits=15, decimal_places=2)
     currency: str = Field(default="INR", min_length=3, max_length=3)
-    instrument_number: str = Field(..., min_length=1, max_length=100)
+    instrument_number: str = Field(default="", max_length=100)
     instrument_date: Optional[datetime] = None
-    issuing_bank: str = Field(..., min_length=1, max_length=255)
+    issuing_bank: str = Field(default="", max_length=255)
     maturity_date: Optional[datetime] = None
     term_end_date: Optional[datetime] = None
     aicte_clause_ref: Optional[str] = Field(default=None, max_length=100)
@@ -35,6 +38,9 @@ class DepositCaseBase(BaseModel):
 class DepositCaseCreate(DepositCaseBase):
     """Schema for creating a deposit case."""
     institution_id: str
+    amount: Decimal = Field(..., gt=Decimal("0"), max_digits=15, decimal_places=2)
+    instrument_number: str = Field(..., min_length=1, max_length=100)
+    issuing_bank: str = Field(..., min_length=1, max_length=255)
     parent_case_id: Optional[str] = None
 
 
