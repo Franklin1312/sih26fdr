@@ -1,5 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom'
 import { Layout } from '../components/layout'
+import { LandingPage } from '../pages/LandingPage'
 import { DashboardPage } from '../pages/DashboardPage'
 import { LoginPage } from '../pages/auth/LoginPage'
 import { WizardPage } from '../pages/wizard'
@@ -15,13 +16,20 @@ import { ReportsPage } from '../pages/ReportsPage'
 
 export const router = createBrowserRouter([
   {
+    path: '/',
+    element: <LandingPage />,
+  },
+  {
+    path: '/landing',
+    element: <LandingPage />,
+  },
+  {
     path: '/login',
     element: <LoginPage />,
   },
   {
     element: <Layout />,
     children: [
-      { path: '/', element: <DashboardPage /> },
       { path: '/dashboard', element: <DashboardPage /> },
       { path: '/reports', element: <ReportsPage /> },
       { path: '/wizard/new', element: <WizardPage isNew /> },

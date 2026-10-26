@@ -1,6 +1,6 @@
 import type { DepositType, DepositMethod, CaseStatus } from './case'
 
-export type ClearanceStatus = 'pending' | 'claimed' | 'in_progress' | 'cleared' | 'rejected'
+export type ClearanceStatus = 'pending' | 'claimed' | 'in_progress' | 'cleared' | 'completed' | 'flagged' | 'rejected'
 
 export type ClearanceType = 'financial' | 'legal' | 'technical' | 'environmental'
 

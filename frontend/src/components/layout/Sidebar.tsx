@@ -17,6 +17,7 @@ import {
   FileText,
   Award,
   BarChart3,
+  Landmark,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
@@ -51,6 +52,12 @@ const navGroups: NavGroup[] = [
   {
     title: 'Overview',
     items: [
+      {
+        label: 'Public Portal',
+        path: '/',
+        icon: Landmark,
+        roles: ['institution_rep', 'scrutiny_officer', 'clearance_officer', 'competent_authority', 'approval_bureau', 'council', 'system_admin'],
+      },
       {
         label: 'Dashboard',
         path: '/dashboard',

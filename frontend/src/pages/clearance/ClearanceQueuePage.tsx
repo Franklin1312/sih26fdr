@@ -24,6 +24,8 @@ const TASK_STATUSES: Record<ClearanceStatus, { label: string; variant: 'default'
   claimed: { label: 'Claimed', variant: 'info' },
   in_progress: { label: 'In Progress', variant: 'warning' },
   cleared: { label: 'Cleared', variant: 'success' },
+  completed: { label: 'Cleared', variant: 'success' },
+  flagged: { label: 'Flagged', variant: 'danger' },
   rejected: { label: 'Rejected', variant: 'danger' },
 };
 

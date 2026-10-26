@@ -30,7 +30,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('refresh_token')
     localStorage.removeItem('user')
     setUser(null)
-    window.location.href = '/login'
+    window.location.href = '/'
   }
 
   useEffect(() => {

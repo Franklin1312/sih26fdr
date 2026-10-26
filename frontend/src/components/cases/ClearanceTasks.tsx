@@ -16,8 +16,19 @@ const statusConfig: Record<string, { label: string; variant: 'default' | 'warnin
   pending: { label: 'Pending', variant: 'default' as const, icon: Clock },
   claimed: { label: 'Claimed', variant: 'warning' as const, icon: User },
   in_progress: { label: 'In Progress', variant: 'info' as const, icon: AlertCircle },
-  completed: { label: 'Completed', variant: 'success' as const, icon: CheckCircle },
+  cleared: { label: 'Cleared', variant: 'success' as const, icon: CheckCircle },
+  completed: { label: 'Cleared', variant: 'success' as const, icon: CheckCircle },
+  flagged: { label: 'Flagged', variant: 'danger' as const, icon: AlertCircle },
   rejected: { label: 'Rejected', variant: 'danger' as const, icon: AlertCircle },
+};
+
+const CLEARANCE_TYPE_LABELS: Record<string, string> = {
+  pgrc: 'Public Grievance Redressal Cell (PGRC)',
+  vigilance: 'Vigilance Cell',
+  technical: 'Technical Cell / Bureau',
+  financial: 'Financial Clearance',
+  legal: 'Legal Clearance',
+  environmental: 'Environmental Clearance',
 };
 
 export function ClearanceTasks({ tasks, onClaim, onComplete, onViewEvidence, currentUserId, currentUserRole }: ClearanceTasksProps) {
@@ -31,7 +42,15 @@ export function ClearanceTasks({ tasks, onClaim, onComplete, onViewEvidence, cur
   }
 
   const sortedTasks = [...tasks].sort((a, b) => {
-    const statusOrder: Record<string, number> = { pending: 0, claimed: 1, in_progress: 2, completed: 3, rejected: 4 };
+    const statusOrder: Record<string, number> = {
+      pending: 0,
+      claimed: 1,
+      in_progress: 2,
+      cleared: 3,
+      completed: 3,
+      flagged: 4,
+      rejected: 4,
+    };
     return (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5);
   });
 
@@ -40,30 +59,49 @@ export function ClearanceTasks({ tasks, onClaim, onComplete, onViewEvidence, cur
       {sortedTasks.map((task) => {
         const config = statusConfig[task.status] || statusConfig.pending;
         const isAssignedToMe = task.assigned_to === currentUserId;
+        const isDone = task.status === 'cleared' || task.status === 'completed';
         const canClaim = task.status === 'pending' && currentUserRole === 'clearance_officer';
         const canComplete = (task.status === 'claimed' || task.status === 'in_progress') && isAssignedToMe;
+        const typeLabel = CLEARANCE_TYPE_LABELS[task.clearance_type.toLowerCase()] || task.clearance_type.replace(/_/g, ' ');
 
         return (
-          <div key={task.id} className="border border-gray-200 rounded-lg p-4">
+          <div key={task.id} className="border border-gray-200 rounded-lg p-4 bg-white hover:border-gray-300 transition-colors">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-2">
-                <h4 className="font-medium text-gray-900">{task.clearance_type.replace(/_/g, ' ')}</h4>
-                  <Badge variant={config.variant}>{config.label}</Badge>
+                  <h4 className="font-semibold text-gray-900">{typeLabel}</h4>
+                  <Badge variant={config.variant} className="capitalize flex items-center gap-1">
+                    <config.icon className="h-3 w-3" />
+                    {config.label}
+                  </Badge>
                 </div>
-                {task.notes && <p className="text-sm text-gray-600 mb-2">{task.notes}</p>}
+                {task.notes && (
+                  <p className="text-sm text-gray-600 mb-2 whitespace-pre-line leading-relaxed">
+                    {task.notes}
+                  </p>
+                )}
                 <div className="flex items-center gap-4 text-sm text-gray-500">
                   {task.assigned_to_user?.full_name && (
                     <span className="flex items-center gap-1">
-                      <User className="h-3 w-3" />
+                      <User className="h-3.5 w-3.5 text-gray-400" />
                       Assigned to: {task.assigned_to_user.full_name}
+                    </span>
+                  )}
+                  {task.completed_at && (
+                    <span className="text-xs text-gray-400">
+                      Completed: {new Date(task.completed_at).toLocaleDateString()}
                     </span>
                   )}
                 </div>
               </div>
               <div className="flex flex-col gap-2 flex-shrink-0">
-                {task.evidence?.length && onViewEvidence && (
-                  <Button variant="outline" size="sm" onClick={() => onViewEvidence(task.evidence![0])} className="gap-1">
+                {Boolean(task.evidence) && onViewEvidence && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onViewEvidence(Array.isArray(task.evidence) ? task.evidence[0] : (task.evidence as unknown as string))}
+                    className="gap-1"
+                  >
                     <FileText className="h-3 w-3" />
                     View Evidence
                   </Button>
@@ -80,10 +118,16 @@ export function ClearanceTasks({ tasks, onClaim, onComplete, onViewEvidence, cur
                     Complete
                   </Button>
                 )}
-                {(isAssignedToMe || task.status === 'completed') && (
-                  <Button variant="ghost" size="sm" disabled className="gap-1">
+                {isDone && (
+                  <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-200">
+                    <CheckCircle className="h-3.5 w-3.5 text-emerald-600" />
+                    Cleared
+                  </span>
+                )}
+                {!isDone && isAssignedToMe && (
+                  <Button variant="ghost" size="sm" disabled className="gap-1 text-gray-500">
                     <ChevronRight className="h-3 w-3" />
-                    {task.status === 'completed' ? 'Done' : 'My Task'}
+                    My Task
                   </Button>
                 )}
               </div>
