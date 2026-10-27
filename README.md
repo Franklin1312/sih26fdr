@@ -300,9 +300,9 @@ cd ..
 
 ## Security & Compliance Architecture
 
-1. **Cryptographic hash chaining**: every lifecycle event (case submission, review decision, clearance approval, document upload) records a SHA-256 hash linked to the previous block. Any database alteration breaks the chain.
+1. **Blockchain-based cryptographic hash chaining (Ethereum Sepolia)**: every lifecycle event (case submission, review decision, clearance approval, document upload) records a SHA-256 hash linked to the previous block forming a tamper-evident chain. The cumulative audit root hash is anchored on-chain by submitting an Ethereum transaction to the **Sepolia testnet** — making the audit trail publicly verifiable and immutable even outside the application database. The on-chain transaction hash (`txHash`) is stored alongside each audit block and can be inspected on [Sepolia Etherscan](https://sepolia.etherscan.io).
 2. **Access control**: fine-grained RBAC enforces endpoint authorisation across institution representatives, scrutiny officers, clearance officers, authorities and administrators.
-3. **Audit immutability**: serialised JSON audit payloads normalise dates, decimals and UUIDs so hash calculation is deterministic across platforms.
+3. **Audit immutability**: serialised JSON audit payloads normalise dates, decimals and UUIDs so hash calculation is deterministic across platforms. The SHA-256 chain root is periodically anchored to the Ethereum Sepolia blockchain, providing an independent, decentralised proof-of-integrity layer beyond the application's own database.
 4. **Regulatory Clause 6.46 compliance**: built-in checklist gates evaluate progressive closure, university conversion, financial-dispute holds and institution mergers before release authorisation.
 
 ---
