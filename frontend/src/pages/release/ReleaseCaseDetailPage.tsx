@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { releaseApi } from '../../api/release';
 import { casesApi } from '../../api/cases';
 import type { ReleaseCaseDetail, ReleaseChecklistItem } from '../../types/release';
 import type { DepositCaseDetail, DepositEvidenceResponse } from '../../types/case';
 import { formatDate } from '../../utils/helpers';
-import { AlertCircle, Loader2, CheckCircle, XCircle, Send, ArrowLeft, ClipboardCheck } from 'lucide-react';
+import { AlertCircle, Loader2, CheckCircle, XCircle, Send, ArrowLeft, ClipboardCheck, Upload, Paperclip } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
@@ -34,6 +34,7 @@ export function ReleaseCaseDetailPage() {
   const [authorityOutput, setAuthorityOutput] = useState<File | null>(null);
   const [outputLoading, setOutputLoading] = useState(false);
   const { user } = useAuth();
+  const authorityFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!caseId) return;
@@ -194,9 +195,29 @@ export function ReleaseCaseDetailPage() {
           <p className="font-medium text-emerald-900">Record simulated {outputType}</p>
           <p className="text-sm text-emerald-700 mt-1">{isApprovalBureauStage ? 'Recording the NOC routes this case to the Council for final sanction.' : 'Recording the Council sanction completes the simulated case and adds it to the audit trail.'}</p>
           <div className="flex flex-wrap items-center gap-3 mt-3">
-            <input type="file" accept=".pdf,.png,.jpg,.jpeg" onChange={(event) => setAuthorityOutput(event.target.files?.[0] || null)} />
+            {/* Hidden native file input */}
+            <input
+              ref={authorityFileInputRef}
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg"
+              className="hidden"
+              onChange={(event) => setAuthorityOutput(event.target.files?.[0] || null)}
+            />
+            {/* Styled file picker button */}
+            <button
+              type="button"
+              onClick={() => authorityFileInputRef.current?.click()}
+              className="inline-flex items-center gap-2 rounded-lg border border-emerald-300 bg-white px-3 py-2 text-sm font-medium text-emerald-800 shadow-sm hover:bg-emerald-50 transition-colors"
+            >
+              <Paperclip className="h-4 w-4 text-emerald-600" />
+              {authorityOutput ? (
+                <span className="max-w-[220px] truncate">{authorityOutput.name}</span>
+              ) : (
+                <span className="text-emerald-600">Choose file…</span>
+              )}
+            </button>
             <Button variant="primary" onClick={handleAuthorityOutput} disabled={!authorityOutput || outputLoading}>
-              {outputLoading ? 'Recording...' : `Record ${outputType}`}
+              {outputLoading ? <><Loader2 className="h-4 w-4 animate-spin mr-1" />Recording…</> : <><Upload className="h-4 w-4 mr-1" />Record {outputType}</>}
             </Button>
           </div>
         </div>

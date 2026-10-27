@@ -30,6 +30,7 @@ import {
   ShieldCheck,
   FileText,
   GitBranch,
+  Paperclip,
 } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
@@ -48,6 +49,7 @@ export function CaseDetailPage() {
   const [renewModalOpen, setRenewModalOpen] = useState(false);
   const [releaseChecklist, setReleaseChecklist] = useState<ReleaseChecklistResponse | null>(null);
   const [uploadingType, setUploadingType] = useState<string | null>(null);
+  const [uploadFileNames, setUploadFileNames] = useState<Record<string, string>>({});
 
   const { user } = useAuth();
   const currentUserRole = user?.role ?? 'institution_rep';
@@ -385,13 +387,44 @@ export function CaseDetailPage() {
               <section className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
                 <h3 className="font-semibold text-gray-900">Release documents needed</h3>
                 <div className="mt-3 space-y-3">
-                  {releaseChecklist.items.filter((item) => item.mandatory && !item.completed && item.document_type).map((item) => (
-                    <label key={item.key} className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                      <span>{item.label}</span>
-                      <input type="file" accept="application/pdf,image/*" disabled={uploadingType === item.document_type}
-                        onChange={(event) => handleChecklistUpload(item.document_type!, event.target.files?.[0])} />
-                    </label>
-                  ))}
+                  {releaseChecklist.items.filter((item) => item.mandatory && !item.completed && item.document_type).map((item) => {
+                    const inputId = `upload-${item.document_type}`;
+                    return (
+                      <div key={item.key} className="flex flex-wrap items-center justify-between gap-3 text-sm">
+                        <span>{item.label}</span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            id={inputId}
+                            type="file"
+                            accept="application/pdf,image/*"
+                            className="hidden"
+                            disabled={uploadingType === item.document_type}
+                            onChange={(event) => {
+                              const file = event.target.files?.[0];
+                              if (file) setUploadFileNames(prev => ({ ...prev, [item.document_type!]: file.name }));
+                              handleChecklistUpload(item.document_type!, event.target.files?.[0]);
+                            }}
+                          />
+                          <label
+                            htmlFor={inputId}
+                            className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium shadow-sm cursor-pointer transition-colors ${
+                              uploadingType === item.document_type
+                                ? 'border-gray-200 bg-gray-100 text-gray-400 cursor-not-allowed'
+                                : 'border-amber-300 bg-white text-amber-800 hover:bg-amber-50'
+                            }`}
+                          >
+                            <Paperclip className="h-4 w-4" />
+                            <span className="max-w-[180px] truncate">
+                              {uploadFileNames[item.document_type!] || 'Choose file…'}
+                            </span>
+                          </label>
+                          {uploadingType === item.document_type && (
+                            <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
             )}
