@@ -35,6 +35,7 @@ from backend.schemas.clearance import (
     ClearanceTaskDetail,
     ClearanceTaskUpdateRequest,
 )
+from backend.schemas.evidence import DepositEvidenceResponse
 from backend.schemas.institution import CurrentUserResponse
 
 router = APIRouter(prefix="/clearance", tags=["clearance"])
@@ -141,17 +142,27 @@ async def get_clearance_case_detail(
     query = select(DepositCase).where(DepositCase.id == case_id).options(
         selectinload(DepositCase.clearances).selectinload(ClearanceTask.assigned_to_user),
         selectinload(DepositCase.institution),
+        selectinload(DepositCase.evidence),
     )
     result = await db.execute(query)
     case = result.scalar_one_or_none()
     
     if not case: raise HTTPException(status_code=404, detail="Case not found")
     
-    # Access is granted if this officer has at least one task on the case.
+    # Access is granted if this officer has at least one task on the case (or system admin)
     tasks = [t for t in case.clearances if t.assigned_to == current_user.user_id]
-    if not tasks: raise HTTPException(status_code=403, detail="No clearance tasks assigned to you for this case")
+    if not tasks:
+        if UserRole.SYSTEM_ADMIN in current_user.roles and case.clearances:
+            tasks = case.clearances
+        else:
+            raise HTTPException(status_code=403, detail="No clearance tasks assigned to you for this case")
     
     task = tasks[0]
+    active_docs = [
+        DepositEvidenceResponse.model_validate(doc)
+        for doc in (case.evidence or [])
+        if not getattr(doc, 'is_deleted', False)
+    ]
     return ClearanceTaskDetail(
         id=task.id, case_id=task.case_id, clearance_type=task.clearance_type,
         assigned_to=task.assigned_to, status=task.status, evidence=task.evidence,
@@ -160,6 +171,7 @@ async def get_clearance_case_detail(
         case_number=case.case_number,
         institution_name=case.institution.name if case.institution else "Unknown",
         deposit_type=case.deposit_type.value, deposit_method=case.deposit_method.value,
+        documents=active_docs,
     )
 
 
@@ -202,16 +214,22 @@ async def claim_clearance_case(
     
     task = my_tasks[0]
     
-    # Reload institution for the response
+    # Reload institution and evidence for the response
     case_result = await db.execute(
         select(DepositCase).where(DepositCase.id == case_id).options(
             selectinload(DepositCase.institution),
+            selectinload(DepositCase.evidence),
         )
     )
     case = case_result.scalar_one_or_none()
     if not case:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
     
+    active_docs = [
+        DepositEvidenceResponse.model_validate(doc)
+        for doc in (case.evidence or [])
+        if not getattr(doc, 'is_deleted', False)
+    ]
     return ClearanceTaskDetail(
         id=task.id, case_id=task.case_id, clearance_type=task.clearance_type,
         assigned_to=task.assigned_to, status=task.status, evidence=task.evidence,
@@ -220,6 +238,7 @@ async def claim_clearance_case(
         case_number=case.case_number,
         institution_name=case.institution.name if case.institution else "Unknown",
         deposit_type=case.deposit_type.value, deposit_method=case.deposit_method.value,
+        documents=active_docs,
     )
 
 
@@ -261,6 +280,7 @@ async def update_clearance_task(
         select(DepositCase).where(DepositCase.id == task.case_id).options(
             selectinload(DepositCase.clearances),
             selectinload(DepositCase.institution),
+            selectinload(DepositCase.evidence),
         )
     )
     case = case_result.scalar_one_or_none()
@@ -286,6 +306,11 @@ async def update_clearance_task(
     await db.refresh(task)
     await db.refresh(task, ["assigned_to_user"])
     
+    active_docs = [
+        DepositEvidenceResponse.model_validate(doc)
+        for doc in (case.evidence or [])
+        if not getattr(doc, 'is_deleted', False)
+    ] if case else []
     return ClearanceTaskDetail(
         id=task.id, case_id=task.case_id, clearance_type=task.clearance_type,
         assigned_to=task.assigned_to, status=task.status, evidence=task.evidence,
@@ -295,6 +320,7 @@ async def update_clearance_task(
         institution_name=case.institution.name if case and case.institution else "Unknown",
         deposit_type=case.deposit_type.value if case else "Unknown",
         deposit_method=case.deposit_method.value if case else "Unknown",
+        documents=active_docs,
     )
 
 
@@ -334,6 +360,7 @@ async def complete_clearance_task(
         select(DepositCase).where(DepositCase.id == task.case_id).options(
             selectinload(DepositCase.clearances),
             selectinload(DepositCase.institution),
+            selectinload(DepositCase.evidence),
         )
     )
     case = case_result.scalar_one_or_none()
@@ -359,6 +386,11 @@ async def complete_clearance_task(
     await db.refresh(task)
     await db.refresh(task, ["assigned_to_user"])
     
+    active_docs = [
+        DepositEvidenceResponse.model_validate(doc)
+        for doc in (case.evidence or [])
+        if not getattr(doc, 'is_deleted', False)
+    ] if case else []
     return ClearanceTaskDetail(
         id=task.id, case_id=task.case_id, clearance_type=task.clearance_type,
         assigned_to=task.assigned_to, status=task.status, evidence=task.evidence,
@@ -368,6 +400,7 @@ async def complete_clearance_task(
         institution_name=case.institution.name if case and case.institution else "Unknown",
         deposit_type=case.deposit_type.value if case else "Unknown",
         deposit_method=case.deposit_method.value if case else "Unknown",
+        documents=active_docs,
     )
 
 

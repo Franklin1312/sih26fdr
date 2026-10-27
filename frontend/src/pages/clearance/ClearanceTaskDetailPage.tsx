@@ -1,13 +1,17 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { clearanceApi } from '../../api/clearance';
+import { casesApi } from '../../api/cases';
 import type { ClearanceTaskDetail } from '../../types/clearance';
+import type { DepositEvidenceResponse } from '../../types/case';
 import { formatDate } from '../../utils/helpers';
-import { AlertCircle, Loader2, CheckCircle, XCircle, ArrowLeft } from 'lucide-react';
+import { AlertCircle, Loader2, CheckCircle, XCircle, ArrowLeft, FileText, ExternalLink } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { Modal } from '../../components/ui/Modal';
 import { Textarea } from '../../components/ui/Textarea';
+import { DocumentCard } from '../../components/cases/DocumentCard';
+import { DocumentViewer } from '../../components/cases/DocumentViewer';
 
 const TASK_STATUS_CONFIG: Record<string, { variant: 'default' | 'success' | 'warning' | 'danger' | 'info'; label: string }> = {
   pending: { variant: 'default', label: 'Pending' },
@@ -30,6 +34,10 @@ export function ClearanceTaskDetailPage() {
   const { taskId } = useParams<{ taskId: string }>();
   const navigate = useNavigate();
   const [task, setTask] = useState<ClearanceTaskDetail | null>(null);
+  const [documents, setDocuments] = useState<DepositEvidenceResponse[]>([]);
+  const [docsLoading, setDocsLoading] = useState(false);
+  const [viewerDoc, setViewerDoc] = useState<DepositEvidenceResponse | null>(null);
+  const [viewerOpen, setViewerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionModalOpen, setActionModalOpen] = useState(false);
@@ -45,6 +53,20 @@ export function ClearanceTaskDetailPage() {
       try {
         const data = await clearanceApi.getTaskDetail(taskId);
         setTask(data);
+        if (data.documents && data.documents.length > 0) {
+          setDocuments(data.documents);
+        } else if (data.case_id) {
+          // Fallback fetch if documents were not embedded
+          try {
+            setDocsLoading(true);
+            const docsRes = await casesApi.listDocuments(data.case_id);
+            setDocuments(docsRes.items || []);
+          } catch (e) {
+            console.warn('Fallback document fetch error:', e);
+          } finally {
+            setDocsLoading(false);
+          }
+        }
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : 'Failed to load task details');
       } finally {
@@ -54,6 +76,28 @@ export function ClearanceTaskDetailPage() {
     fetchTask();
   }, [taskId]);
 
+  const handleViewDocument = (doc: DepositEvidenceResponse) => {
+    setViewerDoc(doc);
+    setViewerOpen(true);
+  };
+
+  const handleDownloadDocument = async (doc: DepositEvidenceResponse) => {
+    try {
+      const blob = await casesApi.downloadDocument(doc.id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = doc.original_filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download failed:', err);
+      alert(err instanceof Error ? err.message : 'Failed to download document');
+    }
+  };
+
   const handleClaim = async () => {
     if (!taskId) return;
     setActionLoading(true);
@@ -61,6 +105,7 @@ export function ClearanceTaskDetailPage() {
       await clearanceApi.claimTask(taskId);
       const data = await clearanceApi.getTaskDetail(taskId);
       setTask(data);
+      if (data.documents) setDocuments(data.documents);
       setActionModalOpen(false);
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : 'Failed to claim task');
@@ -76,6 +121,7 @@ export function ClearanceTaskDetailPage() {
       await clearanceApi.completeTask(task.id, { evidence: notes.trim(), notes: notes.trim() });
       const data = await clearanceApi.getTaskDetail(taskId);
       setTask(data);
+      if (data.documents) setDocuments(data.documents);
       setActionModalOpen(false);
       setNotes('');
     } catch (err: unknown) {
@@ -151,10 +197,54 @@ export function ClearanceTaskDetailPage() {
             {task.notes && <div className="mt-4 pt-4 border-t border-gray-200"><h3 className="text-sm font-medium text-gray-900 mb-2">Officer Notes</h3><p className="text-gray-700">{task.notes}</p></div>}
             {task.evidence && <div className="mt-4 pt-4 border-t border-gray-200"><h3 className="text-sm font-medium text-gray-900 mb-2">Evidence / completion record</h3><p className="whitespace-pre-wrap text-sm text-gray-700">{task.evidence}</p></div>}
           </div>
+
           <div className="bg-white border border-gray-200 rounded-xl p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Case Documents</h2>
-            <p className="text-sm text-gray-500 mb-4">Documents from the case for reference</p>
-            <div className="space-y-2">{task.case_id && <p className="text-sm text-gray-500">Case ID: {task.case_id}</p>}<p className="text-sm text-gray-500">Use the case detail view to see all documents</p></div>
+            <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+              <div className="flex items-center gap-3">
+                <h2 className="text-lg font-semibold text-gray-900">Case Documents</h2>
+                <Badge variant={documents.length > 0 ? 'info' : 'default'}>
+                  {documents.length} {documents.length === 1 ? 'Document' : 'Documents'}
+                </Badge>
+              </div>
+              {task.case_id && (
+                <Link
+                  to={`/cases/${task.case_id}`}
+                  className="inline-flex items-center text-xs font-medium text-primary-600 hover:text-primary-800"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <span>View Full Case Details</span>
+                  <ExternalLink className="h-3 w-3 ml-1" />
+                </Link>
+              )}
+            </div>
+            <p className="text-sm text-gray-500 mb-4">
+              Review all uploaded deposit certificates, receipts, and statutory undertakings submitted for this case before recording clearance.
+            </p>
+
+            {docsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-primary-600" />
+                <span className="ml-2 text-sm text-gray-500">Loading documents...</span>
+              </div>
+            ) : documents.length > 0 ? (
+              <div className="space-y-3">
+                {documents.map((doc) => (
+                  <DocumentCard
+                    key={doc.id}
+                    document={doc}
+                    onView={handleViewDocument}
+                    onDownload={handleDownloadDocument}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 border border-dashed border-gray-200 rounded-lg">
+                <FileText className="h-10 w-10 mx-auto text-gray-300 mb-2" />
+                <p className="text-sm font-medium text-gray-600">No documents found for this case</p>
+                <p className="text-xs text-gray-400 mt-1">Case ID: {task.case_id}</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -184,16 +274,62 @@ export function ClearanceTaskDetailPage() {
       </div>
 
       <Modal.Root open={actionModalOpen} onOpenChange={setActionModalOpen}>
-        <Modal.Content className="max-w-md">
-          <Modal.Header><Modal.Title>{actionType === 'claim' ? 'Claim Task' : 'Complete Task'}</Modal.Title></Modal.Header>
+        <Modal.Content className="max-w-lg">
+          <Modal.Header><Modal.Title>{actionType === 'claim' ? 'Claim Task' : 'Complete Clearance'}</Modal.Title></Modal.Header>
           <Modal.Body className="space-y-4">
-            {actionType === 'claim' ? <p className="text-gray-600">Are you sure you want to claim this task? You will become the assigned officer.</p> : (
-                <Textarea label="Evidence / completion notes" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Record the evidence reviewed and completion decision..." rows={4} />
+            {actionType === 'claim' ? (
+              <p className="text-gray-600">Are you sure you want to claim this task? You will become the assigned officer.</p>
+            ) : (
+              <div className="space-y-4">
+                {documents.length > 0 && (
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 mb-1.5">Quickly reference verified documents:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {documents.map((doc) => (
+                        <button
+                          key={doc.id}
+                          type="button"
+                          onClick={() => {
+                            const refText = `Verified against ${doc.original_filename}`;
+                            if (!notes.includes(refText)) {
+                              setNotes((prev) => (prev ? `${prev}\n${refText}` : refText));
+                            }
+                          }}
+                          className="inline-flex items-center text-xs bg-gray-100 hover:bg-primary-50 hover:text-primary-700 text-gray-700 px-2 py-1 rounded transition-colors cursor-pointer"
+                          title="Click to insert into notes"
+                        >
+                          <FileText className="h-3 w-3 mr-1 text-gray-500" />
+                          <span className="truncate max-w-[180px]">{doc.original_filename}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <Textarea
+                  label="Evidence / completion notes"
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Record the documents and evidence reviewed, along with your clearance decision..."
+                  rows={4}
+                />
+              </div>
             )}
           </Modal.Body>
-          <Modal.Footer><Button variant="secondary" onClick={() => { setActionModalOpen(false); setNotes(''); }} disabled={actionLoading}>Cancel</Button><Button variant="primary" onClick={actionType === 'claim' ? handleClaim : handleComplete} disabled={actionLoading || (actionType === 'complete' && !notes.trim())}>{actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : (actionType === 'claim' ? 'Claim' : 'Complete')}</Button></Modal.Footer>
+          <Modal.Footer>
+            <Button variant="secondary" onClick={() => { setActionModalOpen(false); setNotes(''); }} disabled={actionLoading}>Cancel</Button>
+            <Button variant="primary" onClick={actionType === 'claim' ? handleClaim : handleComplete} disabled={actionLoading || (actionType === 'complete' && !notes.trim())}>
+              {actionLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : (actionType === 'claim' ? 'Claim' : 'Complete Clearance')}
+            </Button>
+          </Modal.Footer>
         </Modal.Content>
       </Modal.Root>
+
+      <DocumentViewer
+        document={viewerDoc}
+        isOpen={viewerOpen}
+        onClose={() => setViewerOpen(false)}
+        onDownload={handleDownloadDocument}
+      />
     </div>
   );
 }

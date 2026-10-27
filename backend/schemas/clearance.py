@@ -13,6 +13,7 @@ from backend.models.enums import (
 )
 from backend.schemas.common import IDMixin, TimestampMixin
 from backend.schemas.institution import UserResponse
+from backend.schemas.evidence import DepositEvidenceResponse
 from backend.schemas.workflow import ClearanceTaskResponse, ReleaseRequestResponse
 
 
@@ -47,6 +48,7 @@ class ClearanceTaskDetail(ClearanceTaskResponse):
     institution_name: str
     deposit_type: str
     deposit_method: str
+    documents: List[DepositEvidenceResponse] = []
 
 
 class ClearanceTaskUpdateRequest(BaseModel):

@@ -1,4 +1,4 @@
-import type { DepositType, DepositMethod, CaseStatus } from './case'
+import type { DepositType, DepositMethod, CaseStatus, DepositEvidenceResponse } from './case'
 
 export type ClearanceStatus = 'pending' | 'claimed' | 'in_progress' | 'cleared' | 'completed' | 'flagged' | 'rejected'
 
@@ -72,6 +72,7 @@ export interface ClearanceTaskDetail {
   institution_name: string
   deposit_type: DepositType
   deposit_method: DepositMethod
+  documents?: DepositEvidenceResponse[]
 }
 
 export interface ClearanceHistoryResponse {

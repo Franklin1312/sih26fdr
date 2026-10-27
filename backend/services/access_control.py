@@ -39,6 +39,7 @@ ROLE_PERMISSIONS: Dict[UserRole, Set[str]] = {
         "evidence:read",
     },
     UserRole.CLEARANCE_OFFICER: {
+        "case:read_assigned",
         "clearance:record",
         "clearance:read_assigned",
         "dashboard:view_clearance",
@@ -231,8 +232,19 @@ class AccessControlService:
                 "sd_refund_review",
             ):
                 return True
-            # Allow clearance officers to access CLEARANCE_QUEUE cases
-            if UserRole.CLEARANCE_OFFICER in user.roles and case_status in ("clearance_queue", "cleared"):
+            # Allow clearance officers to access CLEARANCE_QUEUE and subsequent pipeline cases
+            if UserRole.CLEARANCE_OFFICER in user.roles and case_status in (
+                "clearance_queue",
+                "cleared",
+                "release_requested",
+                "fdr_rpgf_review",
+                "rtgs_review",
+                "sd_refund_review",
+                "final_decision",
+                "noc_issued",
+                "released",
+                "rejected",
+            ):
                 return True
             return case_assigned_officer_id == user.user_id
         
